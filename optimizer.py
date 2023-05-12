@@ -11,7 +11,7 @@ from revolve2.runners.mujoco import LocalRunner
 from revolve2.standard_resources import terrains
 from pyrr import Vector3, Quaternion
 from brain.decentralized_brain import DecentralizedBrain
-from state_measures import retrieve_decentralized_info_from_actor
+from DoublePopulation import DoublePopulation
 
 import neat
 
@@ -20,10 +20,9 @@ class DecentralizedNEATOptimizer:
     """
     Evolutionary NEAT optimizer. Does not need to implement much, just a Revolve2 gimmick
     """
-    population_bu: neat.Population
-    population_td: neat.Population
+    population: DoublePopulation
 
-    _robot_body: Body
+    _robot_body: Body  # TODO: more bodies
 
     _runner: Runner
     _TERRAIN = terrains.flat()
@@ -32,46 +31,48 @@ class DecentralizedNEATOptimizer:
     _sampling_frequency: float
     _control_frequency: float
 
-    def __init__(self, robot_body: Body, configBU_path: str, configTD_path: str, population_size: int, simulation_time: int, sampling_frequency: float, control_frequency: float):
+    _sensory_length: int
+    _single_message_length: int
+    _full_message_length: int
 
-        sensory_length = 7 * 2  # joint info + body info
+    def __init__(self, robot_body: Body,
+                 config_bu_path: str, config_td_path: str,
+                 population_size: int, simulation_time: int,
+                 sampling_frequency: float, control_frequency: float,
+                 sensory_length: int, single_message_length: int, biggest_body: int):
 
-        single_message_length = 32
-        # vector message length * maximum estimated number of messages (i.e. number of children of the largest body)
-        full_message_length = 30 * single_message_length
-        actuator_number = 1
+        # vector message length (with dof output) * maximum estimated number of messages (i.e. number of joints of the largest body)
+        full_message_length = biggest_body * (single_message_length + 1)
 
         # finds input, output, population and updates their values
-        set_config(sensory_length, single_message_length, population_size, configBU_path)  # TODO: (maybe) check whether bottom-up output size can be evolved as well?
-        set_config(full_message_length, actuator_number, population_size, configTD_path)
+        set_config(sensory_length, single_message_length, population_size, config_bu_path)  # TODO: (maybe) check whether bottom-up output size can be evolved as well?
+        set_config(full_message_length, 1, population_size, config_td_path)
 
-        configbu = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                               neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                               configBU_path)
+        config_bu = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                config_bu_path)
 
-        configtd = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                               neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                               configTD_path)
-
-        # create population and set its reporters
-        self.population_bu = neat.Population(configbu)
-        self.population_bu.add_reporter(neat.StdOutReporter(True))
-        stats = neat.StatisticsReporter()
-        self.population_bu.add_reporter(stats)
-        self.population_bu.add_reporter(neat.Checkpointer(generation_interval=1, filename_prefix='bu_checkpoint'))  # comment if you want to run from other checkpoint (see self.run())
+        config_td = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                config_td_path)
 
         # create population and set its reporters
-        self.population_td = neat.Population(configtd)
-        self.population_td.add_reporter(neat.StdOutReporter(True))
+        self.population = DoublePopulation(config_bu, config_td)
+        self.population.add_reporter(neat.StdOutReporter(True))
         stats = neat.StatisticsReporter()
-        self.population_td.add_reporter(stats)
-        self.population_td.add_reporter(neat.Checkpointer(generation_interval=1, filename_prefix='td_checkpoint'))  # comment if you want to run from other checkpoint (see self.run())
+        self.population.add_reporter(stats)
+        self.population.add_reporter(neat.Checkpointer(generation_interval=1, filename_prefix='Checkpoints/bu_checkpoint-'), 0)  # comment if you want to run from other checkpoint (see self.run())
+        self.population.add_reporter(neat.Checkpointer(generation_interval=1, filename_prefix='Checkpoints/td_checkpoint-'), 1)  # comment if you want to run from other checkpoint (see self.run())
 
         self._robot_body = robot_body
 
         self._simulation_time = simulation_time
         self._sampling_frequency = sampling_frequency
         self._control_frequency = control_frequency
+
+        self._sensory_length = sensory_length
+        self._single_message_length = single_message_length
+        self._full_message_length = full_message_length
 
         self._runner = LocalRunner(headless=True)
 
@@ -81,12 +82,14 @@ class DecentralizedNEATOptimizer:
         # checkpoint_file = 'neat-checkpoint-n'
         # self.population = neat.Checkpointer.restore_checkpoint(checkpoint_file)
 
-        best = await self.population_bu.run(self.evaluate_generation, num_generations)
+        best_bu, best_td = await self.population.run(self.evaluate_generation, num_generations)
 
-        with open("best.pickle", "wb") as f:
-            pickle.dump(best, f)
+        with open("Checkpoints/best_bu.pickle", "wb") as f:
+            pickle.dump(best_bu, f)
+        with open("Checkpoints/best_td.pickle", "wb") as f:
+            pickle.dump(best_td, f)
 
-    async def evaluate_generation(self, genomes, config):
+    async def evaluate_generation(self, genomes_bu, genomes_td, config_bu, config_td):
 
         batch = Batch(
             simulation_time=self._simulation_time,
@@ -94,8 +97,11 @@ class DecentralizedNEATOptimizer:
             control_frequency=self._control_frequency,
         )
 
-        for _, genotype in genomes:
-            _, controller = develop(genotype, self._robot_body, config).make_actor_and_controller()
+        for genome_bu, genome_td in zip(genomes_bu, genomes_td):
+            genotype_bu = genome_bu[1]
+            genotype_td = genome_td[1]
+
+            _, controller = develop(genotype_bu, genotype_td, self._robot_body, self._sensory_length, self._single_message_length, self._full_message_length, config_bu, config_td).make_actor_and_controller()
             actor = controller.actor
             bounding_box = actor.calc_aabb()
             env = Environment(EnvironmentActorController(controller))
@@ -118,13 +124,15 @@ class DecentralizedNEATOptimizer:
 
         batch_results = await self._runner.run_batch(batch)  # await
 
-        for environment_result, genome in zip(batch_results.environment_results, genomes):
-            idg, genotype = genome
-            if genotype.fitness is None:
-                genotype.fitness = self._calculate_fitness(
+        for environment_result, genome_bu, genome_td in zip(batch_results.environment_results, genomes_bu, genomes_td):
+            idgbu, genotype_bu = genome_bu
+            idgtd, genotype_td = genome_td
+            if genotype_bu.fitness is None:
+                genotype_bu.fitness = self._calculate_fitness(
                     environment_result.environment_states[0].actor_states[0],
                     environment_result.environment_states[-1].actor_states[0],
                 )
+                genotype_td.fitness = genotype_bu.fitness
 
     @staticmethod
     def _calculate_fitness(begin_state: ActorState, end_state: ActorState) -> float:
@@ -164,9 +172,12 @@ def set_config(input_param: int, output_param: int, population_param: int, path)
         config_file.truncate()
 
 
-def develop(genotype, robot_body, config) -> ModularRobot:
+def develop(genotype_bu, genotype_td, robot_body,
+            sensory_length, single_message_length, full_message_length,
+            config_bu, config_td) -> ModularRobot:
 
     dof_ranges = np.full(len(robot_body.find_active_hinges()), 1.0)
-    brain = DecentralizedBrain(genotype, dof_ranges, config)
+    brain = DecentralizedBrain(genotype_bu, genotype_td, dof_ranges, sensory_length, single_message_length, full_message_length, config_bu, config_td)
 
     return ModularRobot(robot_body, brain)
+

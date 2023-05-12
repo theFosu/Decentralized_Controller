@@ -44,15 +44,13 @@ def retrieve_body_info_from_actor(actor: Actor) -> List:
     return positions
 
 
-def retrieve_decentralized_info_from_actor(actor: Actor) -> List:
+def retrieve_extended_joint_info(joint: Joint) -> List:
+    """Retrieve not only the joint's info but also its left body's."""
 
-    positions = []
+    info = retrieve_body_info(joint.body2)
+    info.extend(retrieve_joint_info(joint))
 
-    for joint in actor.joints:
-
-        positions.append(retrieve_joint_info(joint))
-
-    return positions
+    return info
 
 
 def retrieve_joint_info(joint: Joint) -> List:
@@ -65,5 +63,3 @@ def retrieve_body_info(body: RigidBody) -> List:
 
     return [body.position.x, body.position.y, body.position.z,
             body.orientation.x, body.orientation.y, body.orientation.z, body.orientation.w]
-
-# TODO: add neighboring messages when decentralizing the controller

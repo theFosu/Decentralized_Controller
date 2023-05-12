@@ -12,19 +12,26 @@ import os
 async def main() -> None:
     """Run the script."""
 
-    with open('best.pickle', 'rb') as f:
-        c = pickle.load(f)
+    with open('Checkpoints/best_bu.pickle', 'rb') as f:
+        cbu = pickle.load(f)
+    with open('Checkpoints/best_td.pickle', 'rb') as f:
+        ctd = pickle.load(f)
 
     local_dir = os.path.dirname(__file__)
-    config_path = os.path.join(local_dir, 'configBU.txt')
-    config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                         neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                         config_path)
+    config_bu_path = os.path.join(local_dir, 'configBU.txt')
+    config_bu = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                            neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                            config_bu_path)
+    local_dir = os.path.dirname(__file__)
+    config_td_path = os.path.join(local_dir, 'configTD.txt')
+    config_td = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                            neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                            config_td_path)
 
-    print(f"fitness: {c.fitness}")
+    print(f"fitness: {cbu.fitness}")
 
     rerunner = ModularRobotRerunner()
-    await rerunner.rerun(develop(c, spider(), config), 60, terrain=terrains.flat())
+    await rerunner.rerun(develop(cbu, ctd, spider(), 14, 32, 15*33, config_bu, config_td), 60, terrain=terrains.flat())
 
 
 if __name__ == "__main__":

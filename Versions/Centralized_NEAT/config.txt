@@ -2,13 +2,13 @@
 fitness_criterion     = max
 fitness_threshold     = 1.5
 no_fitness_termination=True
-pop_size              = 500
+pop_size              = 5
 reset_on_extinction = False
 
 [DefaultGenome]
-num_inputs              = 119
+num_inputs              = 105
 num_hidden              = 5
-num_outputs             = 8
+num_outputs             = 10
 initial_connection      = partial_direct 0.5
 feed_forward            = False
 compatibility_disjoint_coefficient    = 1.0

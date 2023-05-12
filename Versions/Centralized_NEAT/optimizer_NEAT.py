@@ -58,7 +58,7 @@ class NEATOptimizer:
 
     async def run(self, num_generations):
 
-        if True:
+        if False:
             checkpoint_file = 'neat-checkpoint-6'
             self.population = neat.Checkpointer.restore_checkpoint(checkpoint_file)
 

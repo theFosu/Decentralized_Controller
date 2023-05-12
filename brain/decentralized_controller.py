@@ -4,13 +4,13 @@ import math
 
 from state_measures import *
 
-from typing import List
+from typing import List, Tuple
 import numpy as np
 import numpy.typing as npt
 import neat
 import neat.ctrnn as ctrnn
 from revolve2.actor_controller import ActorController
-from revolve2.core.physics.actor import Actor
+from revolve2.core.physics.actor import Actor, Joint
 from revolve2.serialization import SerializeError, StaticData
 
 
@@ -18,14 +18,19 @@ class DecentralizedController(ActorController):
     """A controller that manipulates all limbs given a weight matrix evolved through GA."""
 
     _dof_ranges: npt.NDArray[np.float_]
-    _models: List[ctrnn.CTRNN]
+    _dof_ids: List[int]
+    _sensory_length: int
+    _single_message_length: int
+    _full_message_length: int
+    _models: List[Tuple[any, ctrnn.CTRNN, ctrnn.CTRNN]]
     _actor: Actor
     _target: npt.NDArray[np.float_]
 
     def __init__(
         self,
-        dof_ranges: npt.NDArray[np.float_],
-        models: List[ctrnn.CTRNN],
+        dof_ranges: npt.NDArray[np.float_], dof_ids: List[int],
+        sensory_length: int, single_message_length: int, full_message_length: int,
+        models: List[Tuple[any, ctrnn.CTRNN, ctrnn.CTRNN]],
         actor: Actor
     ) -> None:
         """
@@ -36,10 +41,48 @@ class DecentralizedController(ActorController):
         """
 
         self._dof_ranges = dof_ranges
+        self._dof_ids = dof_ids
+        self._sensory_length = sensory_length
+        self._single_message_length = single_message_length
+        self._full_message_length = full_message_length
         self._models = models
         self._actor = actor
 
         self._target = np.full(len(self._dof_ranges), 0.5 * math.pi / 2.0)
+
+    def up_step(self, dt: float) -> (List[float], int):
+
+        full_message = [0.0 for _ in range(self._full_message_length)]
+        filled = 0
+        for module, network, _ in reversed(self._models):
+            if type(module) is Joint:
+                input_data = retrieve_extended_joint_info(module)
+                modular_message = network.advance(input_data, dt, dt)
+            else:
+                input_data = retrieve_body_info(module)
+                input_data.extend(input_data)
+                modular_message = network.advance(input_data, dt, dt)
+
+            full_message[filled:filled+self._single_message_length] = modular_message
+            filled += self._single_message_length+1  # leave room for actuator information
+
+        return full_message, filled
+
+    def down_step(self, dt: float, message: List[float], filled_index) -> List[float]:
+        output = []
+        for module, _, network in self._models:
+            dof = network.advance(message, dt, dt)[0]
+            message[filled_index-1] = dof
+            filled_index -= (self._single_message_length+1)
+            if type(module) is not RigidBody:
+                output.append(dof)
+
+        return output
+
+    def map_output(self, unordered_targets: List[float]) -> None:
+
+        for i, target in enumerate(unordered_targets):
+            self._target[self._dof_ids[i]] = target
 
     def step(self, dt: float) -> None:
         """
@@ -47,13 +90,12 @@ class DecentralizedController(ActorController):
 
         :param dt: The number of seconds to step forward.
         """
-        input_data = retrieve_decentralized_info_from_actor(self._actor)
+        # Total message (without DOF output) is retrieved from Bottom-Up modules
+        message, filled_index = self.up_step(dt)
 
-        for i, single_target in enumerate(self._target):
+        unordered_targets = self.down_step(dt, message, filled_index)
 
-            single_target = self._models[i].advance(input_data[i], dt, dt)
-
-            self._target[i] = single_target[0]
+        self.map_output(unordered_targets)
 
     def get_dof_targets(self) -> List[float]:
         """

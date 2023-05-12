@@ -3,7 +3,7 @@ import logging
 import os
 
 from revolve2.core.modular_robot import ActiveHinge, Body, Brick, ModularRobot
-from revolve2.standard_resources.modular_robots import spider
+from revolve2.standard_resources.modular_robots import *
 from optimizer_NEAT import NEATOptimizer
 
 
@@ -13,8 +13,8 @@ async def main() -> None:
     """Run the simulation."""
 
     # Evolutionary hyperparameters
-    INITIAL_POPULATION = 500
-    NUM_GENERATIONS = 20
+    INITIAL_POPULATION = 5
+    NUM_GENERATIONS = 3
 
     # Simulation (hyper)parameters
     SIMULATION_TIME = 10
@@ -27,7 +27,7 @@ async def main() -> None:
     )
     logging.info(f"Starting optimization")
 
-    body = spider()
+    body = pentapod()
 
     # get neat config for its hyperparameters
     local_dir = os.path.dirname(__file__)
