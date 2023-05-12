@@ -1,0 +1,24 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+# Editor-based HTTP Client requests
+/httpRequests/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
+
+/.venv/
+/.vs/
+/Examples/
+/database/
+*.pickle
+neat-chechpoint-0
+neat-chechpoint-1
+neat-chechpoint-2
+neat-chechpoint-3
+neat-chechpoint-4
+neat-chechpoint-5
+neat-chechpoint-6
+neat-chechpoint-7
+neat-chechpoint-8
+neat-chechpoint-9
