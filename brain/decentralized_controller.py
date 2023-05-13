@@ -103,7 +103,6 @@ class DecentralizedController(ActorController):
 
         :returns: The dof targets.
         """
-
         return list(
             np.clip(
                 self._target,

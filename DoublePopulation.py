@@ -3,6 +3,9 @@ from __future__ import print_function
 from neat.reporting import ReporterSet
 from neat.math_util import mean
 from neat.six_util import iteritems, itervalues
+import neat
+
+import visualize
 
 
 class CompleteExtinctionException(Exception):
@@ -145,6 +148,11 @@ class DoublePopulation(object):
             if self.best_genome2 is None or best2.fitness > self.best_genome2.fitness:
                 self.best_genome2 = best2
 
+            filename = 'Graphs/graph-bu_gen_' + str(self.generation)
+            visualize.draw_net(config=self.config1, genome=self.best_genome1, view=False, filename=filename)
+            filename = 'Graphs/graph-td_gen_' + str(self.generation)
+            visualize.draw_net(config=self.config2, genome=self.best_genome2, view=False, filename=filename)
+
             if not self.config1.no_fitness_termination or not self.config2.no_fitness_termination:
 
                 # End if the fitness threshold is reached.
@@ -200,5 +208,22 @@ class DoublePopulation(object):
             self.reporters1.found_solution(self.config1, self.generation, self.best_genome1)
         if self.config2.no_fitness_termination:
             self.reporters2.found_solution(self.config2, self.generation, self.best_genome2)
+
+        for reporter in self.reporters1.reporters:
+            if type(reporter) is neat.statistics.StatisticsReporter:
+
+                filename = 'Graphs/avg_fitness-bu.svg'
+                visualize.plot_stats(statistics=reporter, ylog=False, view=False, filename=filename)
+                filename = 'Graphs/speciation-bu.svg'
+                visualize.plot_species(statistics=reporter, view=False, filename=filename)
+                break
+        for reporter in self.reporters2.reporters:
+            if type(reporter) is neat.statistics.StatisticsReporter:
+
+                filename = 'Graphs/avg_fitness-td.svg'
+                visualize.plot_stats(statistics=reporter, ylog=False, view=False, filename=filename)
+                filename = 'Graphs/speciation-td.svg'
+                visualize.plot_species(statistics=reporter, view=False, filename=filename)
+                break
 
         return self.best_genome1, self.best_genome2

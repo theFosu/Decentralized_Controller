@@ -1,9 +1,11 @@
 import logging
 import pickle
 import os
+from random import Random
 
 import numpy as np
 import numpy.typing as npt
+from typing import List
 from revolve2.core.modular_robot import ActiveHinge, Body, Brick, ModularRobot
 from revolve2.core.physics.running import ActorState, ActorControl, Runner, Batch, Environment, PosedActor
 from revolve2.core.physics.environment_actor_controller import EnvironmentActorController
@@ -22,7 +24,7 @@ class DecentralizedNEATOptimizer:
     """
     population: DoublePopulation
 
-    _robot_body: Body  # TODO: more bodies
+    _robot_bodies: List[Body]
 
     _runner: Runner
     _TERRAIN = terrains.flat()
@@ -35,7 +37,7 @@ class DecentralizedNEATOptimizer:
     _single_message_length: int
     _full_message_length: int
 
-    def __init__(self, robot_body: Body,
+    def __init__(self, robot_bodies: List[Body],
                  config_bu_path: str, config_td_path: str,
                  population_size: int, simulation_time: int,
                  sampling_frequency: float, control_frequency: float,
@@ -59,12 +61,14 @@ class DecentralizedNEATOptimizer:
         # create population and set its reporters
         self.population = DoublePopulation(config_bu, config_td)
         self.population.add_reporter(neat.StdOutReporter(True))
-        stats = neat.StatisticsReporter()
-        self.population.add_reporter(stats)
+        stats1 = neat.StatisticsReporter()
+        stats2 = neat.StatisticsReporter()
+        self.population.add_reporter(stats1, 0)
+        self.population.add_reporter(stats2, 1)
         self.population.add_reporter(neat.Checkpointer(generation_interval=1, filename_prefix='Checkpoints/bu_checkpoint-'), 0)  # comment if you want to run from other checkpoint (see self.run())
         self.population.add_reporter(neat.Checkpointer(generation_interval=1, filename_prefix='Checkpoints/td_checkpoint-'), 1)  # comment if you want to run from other checkpoint (see self.run())
 
-        self._robot_body = robot_body
+        self._robot_bodies = robot_bodies
 
         self._simulation_time = simulation_time
         self._sampling_frequency = sampling_frequency
@@ -96,12 +100,16 @@ class DecentralizedNEATOptimizer:
             sampling_frequency=self._sampling_frequency,
             control_frequency=self._control_frequency,
         )
-
+        i = 0
         for genome_bu, genome_td in zip(genomes_bu, genomes_td):
             genotype_bu = genome_bu[1]
             genotype_td = genome_td[1]
 
-            _, controller = develop(genotype_bu, genotype_td, self._robot_body, self._sensory_length, self._single_message_length, self._full_message_length, config_bu, config_td).make_actor_and_controller()
+            body_index = i % len(self._robot_bodies)
+
+            body = self._robot_bodies[body_index]
+
+            _, controller = develop(genotype_bu, genotype_td, body, self._sensory_length, self._single_message_length, self._full_message_length, config_bu, config_td).make_actor_and_controller()
             actor = controller.actor
             bounding_box = actor.calc_aabb()
             env = Environment(EnvironmentActorController(controller))
@@ -121,21 +129,24 @@ class DecentralizedNEATOptimizer:
                 )
             )
             batch.environments.append(env)
+            i += 1
 
-        batch_results = await self._runner.run_batch(batch)  # await
+        batch_results = await self._runner.run_batch(batch)
 
         for environment_result, genome_bu, genome_td in zip(batch_results.environment_results, genomes_bu, genomes_td):
             idgbu, genotype_bu = genome_bu
             idgtd, genotype_td = genome_td
             if genotype_bu.fitness is None:
-                genotype_bu.fitness = self._calculate_fitness(
+                genotype_bu.fitness = await self._calculate_fitness(
                     environment_result.environment_states[0].actor_states[0],
                     environment_result.environment_states[-1].actor_states[0],
                 )
+                if genotype_bu.fitness is None:
+                    genotype_bu.fitness = 0.0
                 genotype_td.fitness = genotype_bu.fitness
 
     @staticmethod
-    def _calculate_fitness(begin_state: ActorState, end_state: ActorState) -> float:
+    async def _calculate_fitness(begin_state: ActorState, end_state: ActorState) -> float:
         # distance traveled on the xy plane
         return float(
             (begin_state.position[0] - end_state.position[0]) ** 2

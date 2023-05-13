@@ -2,25 +2,25 @@
 import logging
 import os
 
-from revolve2.standard_resources.modular_robots import spider
+from revolve2.standard_resources.modular_robots import *
 from optimizer import DecentralizedNEATOptimizer
 
 
 # REMEMBER: little modification in neat library to allow population.run to run asynchronously
 
-# TODO: more statistics, better fitness, several bodies
+# TODO: better fitness, better state measures
 
 async def main() -> None:
     """Run the simulation."""
 
     # Evolutionary hyperparameters
-    INITIAL_POPULATION = 7
+    INITIAL_POPULATION = 8*6
     NUM_GENERATIONS = 2
 
     # Simulation (hyper)parameters
-    SIMULATION_TIME = 10
+    SIMULATION_TIME = 20
     SAMPLING_FREQUENCY = 60
-    CONTROL_FREQUENCY = 60
+    CONTROL_FREQUENCY = 40
 
     # Neural network hyperparameters
     SENSORY_LENGTH = 7 * 2  # joint info + body info
@@ -33,14 +33,24 @@ async def main() -> None:
     )
     logging.info(f"Starting optimization")
 
-    body = spider()
+    bodies = [
+        babya(),       # babyb to test
+        blokky(),
+        garrix(),      # gecko left to test
+        insect(),     # penguin left out, # snake left out (different shape type)
+        spider(),
+        stingray(),
+        tinlicker(),
+        ant()
+    ]
+    # not included: queen, squarish, zappa, park
 
     # get neat config for its hyperparameters
     local_dir = os.path.dirname(__file__)
     config_bu_path = os.path.join(local_dir, 'configBU.txt')
     config_td_path = os.path.join(local_dir, 'configTD.txt')
 
-    optimizer = DecentralizedNEATOptimizer(body, config_bu_path, config_td_path, INITIAL_POPULATION,
+    optimizer = DecentralizedNEATOptimizer(bodies, config_bu_path, config_td_path, INITIAL_POPULATION,
                                            SIMULATION_TIME, SAMPLING_FREQUENCY, CONTROL_FREQUENCY,
                                            SENSORY_LENGTH, SINGLE_MESSAGE_LENGTH, BIGGEST_BODY)
 

@@ -45,12 +45,12 @@ class DecentralizedBrain(Brain):
         actor, _ = body.to_actor()
 
         # Add the origin body as the root module
-        models = [(actor.bodies[0], neat.ctrnn.CTRNN.create(self._genotype_bu, self._config_bu, 1 / 60),
+        models = [(actor.bodies[0], neat.ctrnn.CTRNN.create(self._genotype_bu, self._config_bu, 1 / 40),
                    neat.ctrnn.CTRNN.create(self._genotype_td, self._config_td, 1 / 60))]
         for joint in actor.joints:
 
-            models.append((joint, neat.ctrnn.CTRNN.create(self._genotype_bu, self._config_bu, 1/60),
-                           neat.ctrnn.CTRNN.create(self._genotype_td, self._config_td, 1 / 60)))
+            models.append((joint, neat.ctrnn.CTRNN.create(self._genotype_bu, self._config_bu, 1/40),
+                           neat.ctrnn.CTRNN.create(self._genotype_td, self._config_td, 1 / 40)))
 
         dof_ids = remove_brick_ids(dof_ids)
 
@@ -61,9 +61,10 @@ class DecentralizedBrain(Brain):
 
 def remove_brick_ids(dof_ids):
 
-    new_ids = []
+    # Create a dictionary to map each unique integer to its corresponding smallest possible value
+    d = {val: i for i, val in enumerate(sorted(set(dof_ids)))}
 
-    for dof_id in dof_ids:
-        dof_id = int(math.ceil(dof_id/2)-1)
-        new_ids.append(dof_id)
+    # Iterate through the list and replace each integer with its corresponding smallest possible value from the dictionary
+    new_ids = [d[val] for val in dof_ids]
+
     return new_ids

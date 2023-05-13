@@ -2,7 +2,7 @@
 
 from revolve2.runners.mujoco import ModularRobotRerunner
 from revolve2.standard_resources import terrains
-from revolve2.standard_resources.modular_robots import spider, gecko, snake
+from revolve2.standard_resources.modular_robots import *
 import neat
 from optimizer import develop
 import pickle
@@ -31,7 +31,7 @@ async def main() -> None:
     print(f"fitness: {cbu.fitness}")
 
     rerunner = ModularRobotRerunner()
-    await rerunner.rerun(develop(cbu, ctd, spider(), 14, 32, 15*33, config_bu, config_td), 60, terrain=terrains.flat())
+    await rerunner.rerun(develop(cbu, ctd, gecko(), 14, 32, 15*33, config_bu, config_td), 60, terrain=terrains.flat())
 
 
 if __name__ == "__main__":
