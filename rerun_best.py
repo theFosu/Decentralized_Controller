@@ -31,7 +31,7 @@ async def main() -> None:
     print(f"fitness: {cbu.fitness}")
 
     rerunner = ModularRobotRerunner()
-    await rerunner.rerun(develop(cbu, ctd, gecko(), 14, 32, 15*33, config_bu, config_td), 60, terrain=terrains.flat())
+    await rerunner.rerun(develop(cbu, ctd, babya(), 14, 32, 15*33, config_bu, config_td), 60, terrain=terrains.flat())
 
 
 if __name__ == "__main__":

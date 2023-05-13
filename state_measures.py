@@ -3,8 +3,6 @@ from revolve2.core.modular_robot import ActiveHinge, Body
 from pyrr import Quaternion, Vector3
 from typing import List
 
-# TODO: decide whether to keep the nn structure based on rigid bodies
-
 
 def is_root(body: RigidBody) -> bool:
     """Checks whether the specified body is a root node of the actor graph for actuation"""
@@ -60,6 +58,7 @@ def retrieve_joint_info(joint: Joint) -> List:
 
 
 def retrieve_body_info(body: RigidBody) -> List:
-
+    com = body.center_of_mass()
     return [body.position.x, body.position.y, body.position.z,
-            body.orientation.x, body.orientation.y, body.orientation.z, body.orientation.w]
+            body.orientation.x, body.orientation.y, body.orientation.z, body.orientation.w,
+            com.x, com.y, com.z]

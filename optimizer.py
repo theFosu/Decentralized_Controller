@@ -1,13 +1,12 @@
 import logging
+import math
 import pickle
-import os
-from random import Random
 
 import numpy as np
 import numpy.typing as npt
 from typing import List
 from revolve2.core.modular_robot import ActiveHinge, Body, Brick, ModularRobot
-from revolve2.core.physics.running import ActorState, ActorControl, Runner, Batch, Environment, PosedActor
+from revolve2.core.physics.running import EnvironmentState, ActorState, ActorControl, Runner, Batch, Environment, PosedActor
 from revolve2.core.physics.environment_actor_controller import EnvironmentActorController
 from revolve2.runners.mujoco import LocalRunner
 from revolve2.standard_resources import terrains
@@ -138,20 +137,20 @@ class DecentralizedNEATOptimizer:
             idgtd, genotype_td = genome_td
             if genotype_bu.fitness is None:
                 genotype_bu.fitness = await self._calculate_fitness(
-                    environment_result.environment_states[0].actor_states[0],
-                    environment_result.environment_states[-1].actor_states[0],
+                    environment_result.environment_states,
                 )
                 if genotype_bu.fitness is None:
-                    genotype_bu.fitness = 0.0
+                    genotype_bu.fitness = -99
                 genotype_td.fitness = genotype_bu.fitness
 
     @staticmethod
-    async def _calculate_fitness(begin_state: ActorState, end_state: ActorState) -> float:
+    async def _calculate_fitness(states: List[EnvironmentState]) -> float:
         # distance traveled on the xy plane
-        return float(
-            (begin_state.position[0] - end_state.position[0]) ** 2
-            + ((begin_state.position[1] - end_state.position[1]) ** 2)
-        )
+        z = [state.actor_states[0].position[2] for state in states]
+        stdev = np.std(z)
+        return math.sqrt(
+            (states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2
+            + ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[1]) ** 2))-(stdev/2)
 
 
 def set_config(input_param: int, output_param: int, population_param: int, path) -> None:

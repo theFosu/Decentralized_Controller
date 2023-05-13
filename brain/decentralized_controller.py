@@ -55,12 +55,13 @@ class DecentralizedController(ActorController):
         full_message = [0.0 for _ in range(self._full_message_length)]
         filled = 0
         for module, network, _ in reversed(self._models):
+
             if type(module) is Joint:
                 input_data = retrieve_extended_joint_info(module)
                 modular_message = network.advance(input_data, dt, dt)
             else:
                 input_data = retrieve_body_info(module)
-                input_data.extend(input_data)
+                input_data.extend([0, 0, 0, 0, 0, 0, 0])
                 modular_message = network.advance(input_data, dt, dt)
 
             full_message[filled:filled+self._single_message_length] = modular_message
@@ -69,11 +70,14 @@ class DecentralizedController(ActorController):
         return full_message, filled
 
     def down_step(self, dt: float, message: List[float], filled_index) -> List[float]:
+
         output = []
         for module, _, network in self._models:
+
             dof = network.advance(message, dt, dt)[0]
             message[filled_index-1] = dof
             filled_index -= (self._single_message_length+1)
+
             if type(module) is not RigidBody:
                 output.append(dof)
 

@@ -6,15 +6,11 @@ from revolve2.standard_resources.modular_robots import *
 from optimizer import DecentralizedNEATOptimizer
 
 
-# REMEMBER: little modification in neat library to allow population.run to run asynchronously
-
-# TODO: better fitness, better state measures
-
 async def main() -> None:
     """Run the simulation."""
 
     # Evolutionary hyperparameters
-    INITIAL_POPULATION = 8*6
+    INITIAL_POPULATION = 8*2
     NUM_GENERATIONS = 2
 
     # Simulation (hyper)parameters
@@ -23,7 +19,7 @@ async def main() -> None:
     CONTROL_FREQUENCY = 40
 
     # Neural network hyperparameters
-    SENSORY_LENGTH = 7 * 2  # joint info + body info
+    SENSORY_LENGTH = 7 + 10  # joint info + body info
     SINGLE_MESSAGE_LENGTH = 32
     BIGGEST_BODY = 15
 
