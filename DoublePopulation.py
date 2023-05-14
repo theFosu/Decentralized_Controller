@@ -1,4 +1,5 @@
 from __future__ import print_function
+import requests
 
 from neat.reporting import ReporterSet
 from neat.math_util import mean
@@ -77,6 +78,9 @@ class DoublePopulation(object):
         self.best_genome1 = None
         self.best_genome2 = None
 
+        self.TOKEN = "5802238452:AAE-TnCKHgpeIJlQzleM3dhDRtMy03FjjbA"
+        self.chat_id = "259729992"
+
     def add_reporter(self, reporter, index=-1):
         if index == 0:
             self.reporters1.add(reporter)
@@ -123,6 +127,15 @@ class DoublePopulation(object):
         k = 0
         while n is None or k < n and not (complete1 and complete2):
             k += 1
+            try:
+                if self.generation > 0:
+                    url = f"https://api.telegram.org/bot{self.TOKEN}/sendMessage?chat_id={self.chat_id}&text=G number:{str(self.generation)} Best:{str(self.best_genome1.fitness)}"
+                    print(requests.get(url).json())
+                else:
+                    url = f"https://api.telegram.org/bot{self.TOKEN}/sendMessage?chat_id={self.chat_id}&text=Generation number: {str(self.generation)}"
+                    print(requests.get(url).json())
+            except:
+                pass
 
             self.reporters1.start_generation(self.generation)
             self.reporters2.start_generation(self.generation)
@@ -133,11 +146,13 @@ class DoublePopulation(object):
             # Gather and report statistics.
             best1 = None
             for g in itervalues(self.population1):
+                g.fitness = -9999 if g.fitness is None else None
                 if best1 is None or g.fitness > best1.fitness:
                     best1 = g
             self.reporters1.post_evaluate(self.config1, self.population1, self.species1, best1)
             best2 = None
             for g in itervalues(self.population2):
+                g.fitness = -9999 if g.fitness is None else None
                 if best2 is None or g.fitness > best2.fitness:
                     best2 = g
             self.reporters2.post_evaluate(self.config2, self.population2, self.species2, best2)
@@ -225,5 +240,11 @@ class DoublePopulation(object):
                 filename = 'Graphs/speciation-td.svg'
                 visualize.plot_species(statistics=reporter, view=False, filename=filename)
                 break
+
+        try:
+            url = f"https://api.telegram.org/bot{self.TOKEN}/sendMessage?chat_id={self.chat_id}&text=Done!Best{str(self.best_genome1.fitness)}"
+            print(requests.get(url).json())
+        except:
+            pass
 
         return self.best_genome1, self.best_genome2

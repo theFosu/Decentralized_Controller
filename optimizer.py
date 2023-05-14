@@ -140,7 +140,7 @@ class DecentralizedNEATOptimizer:
                     environment_result.environment_states,
                 )
                 if genotype_bu.fitness is None:
-                    genotype_bu.fitness = -99
+                    genotype_bu.fitness = -9999
                 genotype_td.fitness = genotype_bu.fitness
 
     @staticmethod

@@ -84,7 +84,7 @@ class DecentralizedController(ActorController):
         return output
 
     def map_output(self, unordered_targets: List[float]) -> None:
-
+        """Maps the arbitrary output of the down step to their corresponding dof_id index"""
         for i, target in enumerate(unordered_targets):
             self._target[self._dof_ids[i]] = target
 

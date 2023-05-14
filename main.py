@@ -10,18 +10,18 @@ async def main() -> None:
     """Run the simulation."""
 
     # Evolutionary hyperparameters
-    INITIAL_POPULATION = 8*2
-    NUM_GENERATIONS = 2
+    INITIAL_POPULATION = 8*42
+    NUM_GENERATIONS = 50
 
     # Simulation (hyper)parameters
-    SIMULATION_TIME = 20
+    SIMULATION_TIME = 12
     SAMPLING_FREQUENCY = 60
     CONTROL_FREQUENCY = 40
 
     # Neural network hyperparameters
     SENSORY_LENGTH = 7 + 10  # joint info + body info
     SINGLE_MESSAGE_LENGTH = 32
-    BIGGEST_BODY = 15
+    BIGGEST_BODY = 11
 
     logging.basicConfig(
         level=logging.INFO,
@@ -30,9 +30,9 @@ async def main() -> None:
     logging.info(f"Starting optimization")
 
     bodies = [
-        babya(),       # babyb to test
+        babya(),      # babyb to test
         blokky(),
-        garrix(),      # gecko left to test
+        garrix(),     # gecko left to test
         insect(),     # penguin left out, # snake left out (different shape type)
         spider(),
         stingray(),
@@ -55,6 +55,8 @@ async def main() -> None:
     await optimizer.run(NUM_GENERATIONS)
 
     logging.info(f"Finished optimizing.")
+
+
 
 
 if __name__ == "__main__":
