@@ -31,7 +31,38 @@ async def main() -> None:
     print(f"fitness: {cbu.fitness}")
 
     rerunner = ModularRobotRerunner()
-    await rerunner.rerun(develop(cbu, ctd, babyb(), 17, 32, 11*33, config_bu, config_td), 60, terrain=terrains.flat())
+    await rerunner.rerun(develop(cbu, ctd, babyb(), 17, 32, 11*33, config_bu, config_td), 30, terrain=terrains.flat())
+
+
+def finalize_checkpoint():
+    import neat
+    from neat.six_util import itervalues
+
+    pop_bu = neat.Checkpointer.restore_checkpoint('Checkpoints/bu_checkpoint-1')
+    pop_td = neat.Checkpointer.restore_checkpoint('Checkpoints/td_checkpoint-1')
+
+    best_bu = None
+    best_td = None
+    for g in itervalues(pop_bu.population):
+        if g is None:
+            continue
+        if g.fitness is None:
+            g.fitness = -9999
+        if best_bu is None or g.fitness > best_bu.fitness:
+            best_bu = g
+    for g in itervalues(pop_td.population):
+        if g is None:
+            continue
+        if g.fitness is None:
+            g.fitness = -9999
+        if best_td is None or g.fitness > best_bu.fitness:
+            best_td = g
+    print(best_bu.fitness)
+
+    with open("Checkpoints/best_bu.pickle", "wb") as f:
+        pickle.dump(best_bu, f)
+    with open("Checkpoints/best_td.pickle", "wb") as f:
+        pickle.dump(best_td, f)
 
 
 if __name__ == "__main__":

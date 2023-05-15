@@ -45,12 +45,12 @@ class DecentralizedBrain(Brain):
         actor, _ = body.to_actor()
 
         # Add the origin body as the root module
-        models = [(actor.bodies[0], neat.ctrnn.CTRNN.create(self._genotype_bu, self._config_bu, 1 / 40),
-                   neat.ctrnn.CTRNN.create(self._genotype_td, self._config_td, 1 / 60))]
+        models = [(actor.bodies[0], neat.ctrnn.CTRNN.create(self._genotype_bu, self._config_bu, 1 / 30),
+                   neat.ctrnn.CTRNN.create(self._genotype_td, self._config_td, 1 / 30))]
         for joint in actor.joints:
 
-            models.append((joint, neat.ctrnn.CTRNN.create(self._genotype_bu, self._config_bu, 1/40),
-                           neat.ctrnn.CTRNN.create(self._genotype_td, self._config_td, 1 / 40)))
+            models.append((joint, neat.ctrnn.CTRNN.create(self._genotype_bu, self._config_bu, 1/30),
+                           neat.ctrnn.CTRNN.create(self._genotype_td, self._config_td, 1 / 30)))
 
         dof_ids = remove_brick_ids(dof_ids)
 

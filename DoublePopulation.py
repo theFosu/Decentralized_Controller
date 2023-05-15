@@ -146,13 +146,19 @@ class DoublePopulation(object):
             # Gather and report statistics.
             best1 = None
             for g in itervalues(self.population1):
-                g.fitness = -9999 if g.fitness is None else None
+                if g is None:
+                    continue
+                if g.fitness is None:
+                    g.fitness = -9999
                 if best1 is None or g.fitness > best1.fitness:
                     best1 = g
             self.reporters1.post_evaluate(self.config1, self.population1, self.species1, best1)
             best2 = None
             for g in itervalues(self.population2):
-                g.fitness = -9999 if g.fitness is None else None
+                if g is None:
+                    continue
+                if g.fitness is None:
+                    g.fitness = -9999
                 if best2 is None or g.fitness > best2.fitness:
                     best2 = g
             self.reporters2.post_evaluate(self.config2, self.population2, self.species2, best2)

@@ -2,7 +2,7 @@
 fitness_criterion     = max
 fitness_threshold     = 200
 no_fitness_termination=False
-pop_size              = 8
+pop_size              = 160
 reset_on_extinction = False
 
 [DefaultGenome]
@@ -19,7 +19,7 @@ node_add_prob           = 0.2
 node_delete_prob        = 0.2
 activation_default      = tanh
 activation_options      = relu sin tanh gauss
-activation_mutate_rate  = 0.1
+activation_mutate_rate  = 0.2
 aggregation_default     = sum
 aggregation_options     = sum
 aggregation_mutate_rate = 0.0

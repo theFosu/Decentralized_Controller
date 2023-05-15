@@ -1,10 +1,9 @@
-import logging
 import math
 import pickle
 
 import numpy as np
-import numpy.typing as npt
 from typing import List
+import neat
 from revolve2.core.modular_robot import ActiveHinge, Body, Brick, ModularRobot
 from revolve2.core.physics.running import EnvironmentState, ActorState, ActorControl, Runner, Batch, Environment, PosedActor
 from revolve2.core.physics.environment_actor_controller import EnvironmentActorController
@@ -12,18 +11,16 @@ from revolve2.runners.mujoco import LocalRunner
 from revolve2.standard_resources import terrains
 from pyrr import Vector3, Quaternion
 from brain.decentralized_brain import DecentralizedBrain
-from DoublePopulation import DoublePopulation
-
-import neat
 
 
 class DecentralizedNEATOptimizer:
     """
     Evolutionary NEAT optimizer. Does not need to implement much, just a Revolve2 gimmick
     """
-    population: DoublePopulation
+    population: neat.Population
 
     _robot_bodies: List[Body]
+    type_genome: str
 
     _runner: Runner
     _TERRAIN = terrains.flat()
@@ -40,33 +37,30 @@ class DecentralizedNEATOptimizer:
                  config_bu_path: str, config_td_path: str,
                  population_size: int, simulation_time: int,
                  sampling_frequency: float, control_frequency: float,
-                 sensory_length: int, single_message_length: int, biggest_body: int):
+                 sensory_length: int, single_message_length: int, biggest_body: int, type_genome: str):
 
         # vector message length (with dof output) * maximum estimated number of messages (i.e. number of joints of the largest body)
         full_message_length = biggest_body * (single_message_length + 1)
 
         # finds input, output, population and updates their values
-        set_config(sensory_length, single_message_length, population_size, config_bu_path)
-        set_config(full_message_length, 1, population_size, config_td_path)
-
-        config_bu = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                                neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                                config_bu_path)
-
-        config_td = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                                neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                                config_td_path)
+        if type_genome == 'bu':
+            set_config(sensory_length, single_message_length, population_size, config_bu_path)
+            config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                 neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                 config_bu_path)
+        else:
+            set_config(full_message_length, 1, population_size, config_td_path)
+            config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                 neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                 config_td_path)
+        self.type_genome = type_genome
 
         # create population and set its reporters
-        self.population = DoublePopulation(config_bu, config_td)
-        self.population.add_reporter(neat.StdOutReporter(True))
-        stats1 = neat.StatisticsReporter()
-        stats2 = neat.StatisticsReporter()
-        self.population.add_reporter(stats1, 0)
-        self.population.add_reporter(stats2, 1)
-        self.population.add_reporter(neat.Checkpointer(generation_interval=1, filename_prefix='Checkpoints/bu_checkpoint-'), 0)  # comment if you want to run from other checkpoint (see self.run())
-        self.population.add_reporter(neat.Checkpointer(generation_interval=1, filename_prefix='Checkpoints/td_checkpoint-'), 1)  # comment if you want to run from other checkpoint (see self.run())
-
+        self.population = neat.Population(config)
+        stats = neat.StatisticsReporter()
+        self.population.add_reporter(stats)
+        prefix = type_genome + 'Checkpoints/bu_checkpoint-'
+        self.population.add_reporter(neat.Checkpointer(generation_interval=1, filename_prefix= prefix))  # comment if you want to run from other checkpoint (see self.run())
         self._robot_bodies = robot_bodies
 
         self._simulation_time = simulation_time
@@ -85,14 +79,12 @@ class DecentralizedNEATOptimizer:
         # checkpoint_file = 'neat-checkpoint-n'
         # self.population = neat.Checkpointer.restore_checkpoint(checkpoint_file)
 
-        best_bu, best_td = await self.population.run(self.evaluate_generation, num_generations)
+        best = await self.population.run(self.evaluate_generation, num_generations)
+        filename = 'Checkpoints/best_' + self.type_genome + '.pickle'
+        with open(filename, "wb") as f:
+            pickle.dump(best, f)
 
-        with open("Checkpoints/best_bu.pickle", "wb") as f:
-            pickle.dump(best_bu, f)
-        with open("Checkpoints/best_td.pickle", "wb") as f:
-            pickle.dump(best_td, f)
-
-    async def evaluate_generation(self, genomes_bu, genomes_td, config_bu, config_td):
+    async def evaluate_generation(self, genomes, config):
 
         batch = Batch(
             simulation_time=self._simulation_time,
@@ -100,15 +92,13 @@ class DecentralizedNEATOptimizer:
             control_frequency=self._control_frequency,
         )
         i = 0
-        for genome_bu, genome_td in zip(genomes_bu, genomes_td):
-            _, genotype_bu = genome_bu
-            _, genotype_td = genome_td
+        for _, genotype in genomes:
 
             body_index = i % len(self._robot_bodies)
 
             body = self._robot_bodies[body_index]
 
-            _, controller = develop(genotype_bu, genotype_td, body, self._sensory_length, self._single_message_length, self._full_message_length, config_bu, config_td).make_actor_and_controller()
+            _, controller = develop(genotype, body, self._sensory_length, self._single_message_length, self._full_message_length, config, self.type_genome).make_actor_and_controller()
             actor = controller.actor
             bounding_box = actor.calc_aabb()
             env = Environment(EnvironmentActorController(controller))
@@ -132,16 +122,13 @@ class DecentralizedNEATOptimizer:
 
         batch_results = await self._runner.run_batch(batch)
 
-        for environment_result, genome_bu, genome_td in zip(batch_results.environment_results, genomes_bu, genomes_td):
-            idgbu, genotype_bu = genome_bu
-            idgtd, genotype_td = genome_td
+        for environment_result, genome in zip(batch_results.environment_results, genomes):
 
-            if genotype_bu.fitness is None:
-                genotype_bu.fitness = await self._calculate_fitness(environment_result.environment_states)
+            if genome.fitness is None:
+                genome.fitness = await self._calculate_fitness(environment_result.environment_states)
             else:
                 new_fitness = await self._calculate_fitness(environment_result.environment_states)
-                genotype_bu.fitness = (genotype_bu.fitness + new_fitness) / 2  # Averages fitness with the new one
-            genotype_td.fitness = genotype_bu.fitness
+                genome.fitness = (genome.fitness + new_fitness) / 2
 
     @staticmethod
     async def _calculate_fitness(states: List[EnvironmentState]) -> float:
@@ -182,12 +169,31 @@ def set_config(input_param: int, output_param: int, population_param: int, path)
         config_file.truncate()
 
 
-def develop(genotype_bu, genotype_td, robot_body,
+def develop(genotype, robot_body,
             sensory_length, single_message_length, full_message_length,
-            config_bu, config_td) -> ModularRobot:
+            config, type_genome) -> ModularRobot:
+
+    if type_genome == 'bu':
+        genotype1 = genotype
+        config1 = config
+
+        config2 = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                'configTD.txt')
+        with open('Checkpoints/best_td.pickle', 'rb') as f:
+            genotype2 = pickle.load(f)
+    else:
+        genotype2 = genotype
+        config2 = config
+
+        config1 = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                'configBU.txt')
+        with open('Checkpoints/best_bu.pickle', 'rb') as f:
+            genotype1 = pickle.load(f)
 
     dof_ranges = np.full(len(robot_body.find_active_hinges()), 1.0)
-    brain = DecentralizedBrain(genotype_bu, genotype_td, dof_ranges, sensory_length, single_message_length, full_message_length, config_bu, config_td)
+    brain = DecentralizedBrain(genotype1, genotype2, dof_ranges, sensory_length, single_message_length, full_message_length, config1, config2)
 
     return ModularRobot(robot_body, brain)
 
