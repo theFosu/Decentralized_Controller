@@ -3,20 +3,24 @@ import logging
 import os
 
 from revolve2.standard_resources.modular_robots import *
-from optimizer import DecentralizedNEATOptimizer
+from initial_optimizer import DecentralizedNEATOptimizer as InitialOptimizer
+from iterative_optimizer import DecentralizedNEATOptimizer as IterativeOptimizer
 
 
 async def main() -> None:
     """Run the simulation."""
 
     # Evolutionary hyperparameters
-    INITIAL_POPULATION = 8*20
+    POPULATION = 50
     NUM_GENERATIONS = 5
 
     # Simulation (hyper)parameters
-    SIMULATION_TIME = 30
+    SIMULATION_TIME = 15
     SAMPLING_FREQUENCY = 60
-    CONTROL_FREQUENCY = 20
+    CONTROL_FREQUENCY = 40
+
+    SWITCH_TIME = 2
+    NUM_ITERATIONS = 10
 
     # Neural network hyperparameters
     SENSORY_LENGTH = 7 + 10  # joint info + body info
@@ -30,34 +34,39 @@ async def main() -> None:
     logging.info(f"Starting optimization")
 
     bodies = [
-        babya(),      # babyb to test
+        babya(),
         blokky(),
-        garrix(),     # gecko left to test
-        insect(),     # penguin left out, # snake left out (different shape type)
+        garrix(),
+        insect(),
         spider(),
         stingray(),
         tinlicker(),
         ant()
     ]
-    # not included: queen, squarish, zappa, park
+    # not included: queen, squarish, zappa, park. Original test bodies: babyb, gecko, penguin
 
     # get neat config for its hyperparameters
     local_dir = os.path.dirname(__file__)
     config_bu_path = os.path.join(local_dir, 'configBU.txt')
     config_td_path = os.path.join(local_dir, 'configTD.txt')
 
-    optimizer = DecentralizedNEATOptimizer(bodies, config_bu_path, config_td_path, INITIAL_POPULATION,
-                                           SIMULATION_TIME, SAMPLING_FREQUENCY, CONTROL_FREQUENCY,
-                                           SENSORY_LENGTH, SINGLE_MESSAGE_LENGTH, BIGGEST_BODY)
+    optimizer = InitialOptimizer(bodies, config_bu_path, config_td_path, POPULATION, SIMULATION_TIME, SAMPLING_FREQUENCY, CONTROL_FREQUENCY,
+                                 SENSORY_LENGTH, SINGLE_MESSAGE_LENGTH, BIGGEST_BODY)
 
-    logging.info("Starting optimization process..")
+    logging.info("Starting initial optimization process..")
 
     await optimizer.run(NUM_GENERATIONS)
 
     logging.info(f"Finished optimizing.")
 
+    optimizer = IterativeOptimizer(bodies, SIMULATION_TIME, SAMPLING_FREQUENCY, CONTROL_FREQUENCY,
+                                   SENSORY_LENGTH, SINGLE_MESSAGE_LENGTH, BIGGEST_BODY)
 
+    logging.info("Starting iterative optimization process..")
 
+    await optimizer.run(NUM_ITERATIONS, SWITCH_TIME)
+
+    logging.info(f"Finished optimizing.")
 
 if __name__ == "__main__":
     import asyncio

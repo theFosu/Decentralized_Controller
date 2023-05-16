@@ -4,7 +4,7 @@ from revolve2.runners.mujoco import ModularRobotRerunner
 from revolve2.standard_resources import terrains
 from revolve2.standard_resources.modular_robots import *
 import neat
-from optimizer import develop
+from initial_optimizer import DecentralizedNEATOptimizer
 import pickle
 import os
 
@@ -22,7 +22,7 @@ async def main() -> None:
     config_bu = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                             neat.DefaultSpeciesSet, neat.DefaultStagnation,
                             config_bu_path)
-    local_dir = os.path.dirname(__file__)
+
     config_td_path = os.path.join(local_dir, 'configTD.txt')
     config_td = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                             neat.DefaultSpeciesSet, neat.DefaultStagnation,
@@ -31,7 +31,7 @@ async def main() -> None:
     print(f"fitness: {cbu.fitness}")
 
     rerunner = ModularRobotRerunner()
-    await rerunner.rerun(develop(cbu, ctd, babyb(), 17, 32, 11*33, config_bu, config_td), 30, terrain=terrains.flat())
+    await rerunner.rerun(DecentralizedNEATOptimizer.develop(cbu, ctd, babya(), 17, 32, 11*33, config_bu, config_td), 4, terrain=terrains.flat())
 
 
 def finalize_checkpoint():

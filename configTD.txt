@@ -2,11 +2,11 @@
 fitness_criterion     = max
 fitness_threshold     = 200
 no_fitness_termination=False
-pop_size              = 160
+pop_size              = 50
 reset_on_extinction = False
 
 [DefaultGenome]
-num_inputs              = 363
+num_inputs              = 364
 num_hidden              = 5
 num_outputs             = 1
 initial_connection      = partial_direct 0.5
@@ -18,8 +18,8 @@ conn_delete_prob        = 0.2
 node_add_prob           = 0.2
 node_delete_prob        = 0.2
 activation_default      = tanh
-activation_options      = relu sin tanh gauss
-activation_mutate_rate  = 0.2
+activation_options      = sin tanh gauss
+activation_mutate_rate  = 0.5
 aggregation_default     = sum
 aggregation_options     = sum
 aggregation_mutate_rate = 0.0

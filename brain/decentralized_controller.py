@@ -8,7 +8,7 @@ from typing import List, Tuple
 import numpy as np
 import numpy.typing as npt
 import neat
-import neat.ctrnn as ctrnn
+import neat.nn.recurrent as rnn
 from revolve2.actor_controller import ActorController
 from revolve2.core.physics.actor import Actor, Joint
 from revolve2.serialization import SerializeError, StaticData
@@ -19,10 +19,11 @@ class DecentralizedController(ActorController):
 
     _dof_ranges: npt.NDArray[np.float_]
     _dof_ids: List[int]
+    _time_passed: float
     _sensory_length: int
     _single_message_length: int
     _full_message_length: int
-    _models: List[Tuple[any, ctrnn.CTRNN, ctrnn.CTRNN]]
+    _models: List[Tuple[any, rnn.RecurrentNetwork, rnn.RecurrentNetwork]]
     _actor: Actor
     _target: npt.NDArray[np.float_]
 
@@ -30,7 +31,7 @@ class DecentralizedController(ActorController):
         self,
         dof_ranges: npt.NDArray[np.float_], dof_ids: List[int],
         sensory_length: int, single_message_length: int, full_message_length: int,
-        models: List[Tuple[any, ctrnn.CTRNN, ctrnn.CTRNN]],
+        models: List[Tuple[any, rnn.RecurrentNetwork, rnn.RecurrentNetwork]],
         actor: Actor
     ) -> None:
         """
@@ -48,33 +49,38 @@ class DecentralizedController(ActorController):
         self._models = models
         self._actor = actor
 
+        self._time_passed = 0
         self._target = np.full(len(self._dof_ranges), 0.5 * math.pi / 2.0)
 
     def up_step(self, dt: float) -> (List[float], int):
 
         full_message = [0.0 for _ in range(self._full_message_length)]
-        filled = 0
+
+        self._time_passed += dt
+        full_message[0] = self._time_passed
+
+        filled = 1
         for module, network, _ in reversed(self._models):
 
             if type(module) is Joint:
                 input_data = retrieve_extended_joint_info(module)
-                modular_message = network.advance(input_data, dt, dt)
+                modular_message = network.activate(input_data)
             else:
                 input_data = retrieve_body_info(module)
                 input_data.extend([0, 0, 0, 0, 0, 0, 0])
-                modular_message = network.advance(input_data, dt, dt)
+                modular_message = network.activate(input_data)
 
             full_message[filled:filled+self._single_message_length] = modular_message
             filled += self._single_message_length+1  # leave room for actuator information
 
         return full_message, filled
 
-    def down_step(self, dt: float, message: List[float], filled_index) -> List[float]:
+    def down_step(self, message: List[float], filled_index) -> List[float]:
 
         output = []
         for module, _, network in self._models:
 
-            dof = network.advance(message, dt, dt)[0]
+            dof = network.activate(message)[0]
             message[filled_index-1] = dof
             filled_index -= (self._single_message_length+1)
 
@@ -97,7 +103,7 @@ class DecentralizedController(ActorController):
         # Total message (without DOF output) is retrieved from Bottom-Up modules
         message, filled_index = self.up_step(dt)
 
-        unordered_targets = self.down_step(dt, message, filled_index)
+        unordered_targets = self.down_step(message, filled_index)
 
         self.map_output(unordered_targets)
 
