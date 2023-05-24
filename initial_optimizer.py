@@ -148,7 +148,7 @@ class DecentralizedNEATOptimizer:
         stdev = np.std(z)
         return math.sqrt(
             (states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2
-            + ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[1]) ** 2))-(stdev/2)
+            + ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[1]) ** 2))-stdev
 
     @staticmethod
     def develop(genotype_bu, genotype_td, robot_body,

@@ -12,15 +12,15 @@ async def main() -> None:
 
     # Evolutionary hyperparameters
     POPULATION = 50
-    NUM_GENERATIONS = 5
+    NUM_GENERATIONS = 3
 
     # Simulation (hyper)parameters
     SIMULATION_TIME = 15
     SAMPLING_FREQUENCY = 60
-    CONTROL_FREQUENCY = 40
+    CONTROL_FREQUENCY = 30
 
-    SWITCH_TIME = 2
-    NUM_ITERATIONS = 10
+    SWITCH_TIME = 4
+    NUM_ITERATIONS = 5
 
     # Neural network hyperparameters
     SENSORY_LENGTH = 7 + 10  # joint info + body info
