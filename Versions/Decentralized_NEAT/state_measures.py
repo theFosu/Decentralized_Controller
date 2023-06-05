@@ -42,24 +42,6 @@ def retrieve_body_info_from_actor(actor: Actor) -> List:
     return positions
 
 
-def retrieve_info_from_actor(actor: Actor):
-    info = []
-    for joint in actor.joints:
-        info.append(retrieve_extended_joint_info(joint))
-
-    return info
-
-
-def retrieved_mapped_info(actor: Actor, dof_ids: List[int]):
-    unmapped_infos = retrieve_info_from_actor(actor)
-
-    mapped_infos = unmapped_infos[:]
-    for i, info in enumerate(unmapped_infos):
-        mapped_infos[dof_ids[i]] = info
-
-    return mapped_infos
-
-
 def retrieve_extended_joint_info(joint: Joint) -> List:
     """Retrieve not only the joint's info but also its left body's."""
 

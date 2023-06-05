@@ -1,12 +1,12 @@
 from typing import List, Tuple
 import numpy as np
 import numpy.typing as npt
-import neat
-import math
+import copy
 
 from revolve2.actor_controller import ActorController
 from revolve2.core.modular_robot import Body, Brain
 from brain.decentralized_controller import DecentralizedController
+from brain.ModularPolicy import JointPolicy
 
 
 class DecentralizedBrain(Brain):
@@ -14,24 +14,16 @@ class DecentralizedBrain(Brain):
     Decentralized brain that controls each limb through two modules with weights and topology defined by NEAT algorithm
     """
 
-    _genotype_bu: neat.genome
-    _genotype_td: neat.genome
+    _policy: JointPolicy
     _dof_ranges: npt.NDArray[np.float_]
-    _sensory_length: int
-    _single_message_length: int
     _full_message_length: int
-    _config_bu: neat.Config
-    _config_td: neat.Config
+    _single_message_length: int
 
-    def __init__(self, genotype_bu: neat.genome, genotype_td: neat.genome, dof_ranges: npt.NDArray[np.float_], sensory_length: int, single_message_length: int, full_message_length: int, config_bu: neat.Config, config_td: neat.Config):
-        self._genotype_bu = genotype_bu
-        self._genotype_td = genotype_td
+    def __init__(self, network: JointPolicy, dof_ranges: npt.NDArray[np.float_], full_message_length, single_message_length):
+        self._policy = network
         self._dof_ranges = dof_ranges
-        self._sensory_length = sensory_length
-        self._single_message_length = single_message_length
-        self._full_message_length = full_message_length
-        self._config_bu = config_bu
-        self._config_td = config_td
+        self.full_message_length = full_message_length
+        self.single_message_length = single_message_length
 
     def make_controller(self, body: Body, dof_ids: List[int]) -> ActorController:
         """
@@ -44,18 +36,15 @@ class DecentralizedBrain(Brain):
 
         actor, _ = body.to_actor()
 
-        # Add the origin body as the root module
-        models = [(actor.bodies[0], neat.nn.recurrent.RecurrentNetwork.create(self._genotype_bu, self._config_bu),
-                   neat.nn.recurrent.RecurrentNetwork.create(self._genotype_td, self._config_td))]
-        for joint in actor.joints:
-
-            models.append((joint, neat.nn.recurrent.RecurrentNetwork.create(self._genotype_bu, self._config_bu),
-                           neat.nn.recurrent.RecurrentNetwork.create(self._genotype_td, self._config_td)))
-
         dof_ids = remove_brick_ids(dof_ids)
 
+        models = []
+        for joint in actor.joints:
+            models.append([joint, copy.deepcopy(self._policy)])
+
         return DecentralizedController(
-            self._dof_ranges, dof_ids, self._sensory_length, self._single_message_length, self._full_message_length, models, actor
+            self._dof_ranges, dof_ids, models, actor,
+            self.full_message_length, self.single_message_length
         )
 
 

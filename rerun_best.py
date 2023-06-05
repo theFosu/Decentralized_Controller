@@ -4,69 +4,38 @@ from revolve2.runners.mujoco import ModularRobotRerunner
 from revolve2.core.physics.running import RecordSettings
 from revolve2.standard_resources import terrains
 from revolve2.standard_resources.modular_robots import *
-import neat
-from initial_optimizer import DecentralizedNEATOptimizer
+from evotorch.neuroevolution import NEProblem
+from brain.ModularPolicy import JointPolicy
+import torch
+from optimizer import DecentralizedOptimizer
 import pickle
 import os
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 async def main() -> None:
     """Run the script."""
 
-    with open('Checkpoints/best_bu.pickle', 'rb') as f:
-        cbu = pickle.load(f)
-    with open('Checkpoints/best_td.pickle', 'rb') as f:
-        ctd = pickle.load(f)
+    policy_args = {'state_dim': 17, 'action_dim': 1,
+                   'msg_dim': 8, 'batch_size': 16,
+                   'max_action': 1, 'max_children': 11}
 
-    local_dir = os.path.dirname(__file__)
-    config_bu_path = os.path.join(local_dir, 'configBU.txt')
-    config_bu = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                            neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                            config_bu_path)
+    torch.set_default_dtype(torch.double)
+    problem = NEProblem('max', JointPolicy, network_args=policy_args, device=device)
 
-    config_td_path = os.path.join(local_dir, 'configTD.txt')
-    config_td = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                            neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                            config_td_path)
+    with open('Checkpoints/NEProblem_2023-06-05-13.41.32_28484_generation000003.pickle', 'rb') as f:
+        file = pickle.load(f)
+    print(file)
+    best = file['pop_best']
+    network = problem.make_net(best)
 
-    print(f"fitness: {cbu.fitness}")
+    print(f"fitness: {file['pop_best_eval']}")
 
-    #recording = RecordSettings('Videos/spider')
-    #, simulation_time=20, record_settings=recording
+    # recording = RecordSettings('Videos/spider')
+    # , simulation_time=20, record_settings=recording
 
     rerunner = ModularRobotRerunner()
-    await rerunner.rerun(DecentralizedNEATOptimizer.develop(cbu, ctd, spider(), 17, 32, 11*33+1, config_bu, config_td), 20, terrain=terrains.flat())
-
-
-def finalize_checkpoint():
-    import neat
-    from neat.six_util import itervalues
-
-    pop_bu = neat.Checkpointer.restore_checkpoint('Checkpoints/bu_checkpoint-1')
-    pop_td = neat.Checkpointer.restore_checkpoint('Checkpoints/td_checkpoint-1')
-
-    best_bu = None
-    best_td = None
-    for g in itervalues(pop_bu.population):
-        if g is None:
-            continue
-        if g.fitness is None:
-            g.fitness = -99
-        if best_bu is None or g.fitness > best_bu.fitness:
-            best_bu = g
-    for g in itervalues(pop_td.population):
-        if g is None:
-            continue
-        if g.fitness is None:
-            g.fitness = -99
-        if best_td is None or g.fitness > best_bu.fitness:
-            best_td = g
-    print(best_bu.fitness)
-
-    with open("Checkpoints/best_bu.pickle", "wb") as f:
-        pickle.dump(best_bu, f)
-    with open("Checkpoints/best_td.pickle", "wb") as f:
-        pickle.dump(best_td, f)
+    await rerunner.rerun(DecentralizedOptimizer.develop(network, spider(), 11*8, 8), 60, start_paused=False, terrain=terrains.flat())
 
 
 def final_stats(generations: int, threshold: int):
@@ -75,7 +44,6 @@ def final_stats(generations: int, threshold: int):
     import visualize
 
     stats_bu = neat.StatisticsReporter()
-    stats_td = neat.StatisticsReporter()
 
     best_bu = None
     best_td = None
@@ -109,13 +77,6 @@ def final_stats(generations: int, threshold: int):
 
     filename = 'Graphs/avg_fitness-bu.svg'
     visualize.plot_stats(statistics=stats_bu, threshold=threshold, ylog=False, view=False, filename=filename)
-    filename = 'Graphs/speciation-bu.svg'
-    visualize.plot_species(statistics=stats_bu, threshold=threshold, view=False, filename=filename)
-
-    filename = 'Graphs/avg_fitness-td.svg'
-    visualize.plot_stats(statistics=stats_td, threshold=threshold, ylog=False, view=False, filename=filename)
-    filename = 'Graphs/speciation-td.svg'
-    visualize.plot_species(statistics=stats_td, threshold=threshold, view=False, filename=filename)
 
 
 if __name__ == "__main__":
