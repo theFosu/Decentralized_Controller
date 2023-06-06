@@ -1,4 +1,5 @@
 import math
+import asyncio
 
 import numpy as np
 from typing import List
@@ -51,8 +52,7 @@ class DecentralizedOptimizer:
         problem = NEProblem(objective_sense="max",
                             network=JointPolicy, network_eval_func=self.evaluate_network,
                             network_args=policy_args, initial_bounds=(-1, 1),
-                            device="cuda:0" if torch.cuda.is_available() else "cpu",
-                            num_actors=4, num_gpus_per_actor='max')
+                            device="cuda:0" if torch.cuda.is_available() else "cpu")
 
         self.solver = SNES(problem, popsize=population_size, stdev_init=5)
         self.Logger = StdOutLogger(self.solver)
@@ -67,7 +67,7 @@ class DecentralizedOptimizer:
         self._full_message_length = single_message_length * biggest_body
         self._single_message_length = single_message_length
 
-        self._runner = LocalRunner(headless=True)
+        self._runner = LocalRunner(headless=True, num_simulators=4)
 
     def run(self, num_generations):
 
@@ -104,6 +104,8 @@ class DecentralizedOptimizer:
             )
             batch.environments.append(env)
 
+        # loop = asyncio.get_event_loop()
+        # batch_results = loop.run_until_complete(self._runner.run_batch(batch))
         batch_results = self._runner.run_batch(batch)
 
         fitness_sum = 0

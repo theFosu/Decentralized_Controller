@@ -1,7 +1,6 @@
 """Visualize and simulate the best robot from the optimization process."""
 
 from revolve2.runners.mujoco import ModularRobotRerunner
-from revolve2.core.physics.running import RecordSettings
 from revolve2.standard_resources import terrains
 from revolve2.standard_resources.modular_robots import *
 from evotorch.neuroevolution import NEProblem

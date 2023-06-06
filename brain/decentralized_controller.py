@@ -5,7 +5,7 @@ import math
 from state_measures import *
 from brain.ModularPolicy import JointPolicy
 
-from typing import List, Tuple
+from typing import List
 import torch
 import numpy as np
 import numpy.typing as npt
@@ -50,13 +50,12 @@ class DecentralizedController(ActorController):
         self._full_message_length = full_length
         self._single_message_length = single_length
 
-
     def map_output(self, unordered_targets: List[float]) -> None:
         """Maps the arbitrary output of the down step to their corresponding dof_id index"""
         for i, target in enumerate(unordered_targets):
             self._target[self._dof_ids[i]] = target
 
-    def up_step(self, dt: float) -> (List[float], int):
+    def up_step(self, dt: float) -> torch.Tensor:
 
         full_message = torch.tensor([0.0 for _ in range(self._full_message_length)], device=device)
 
@@ -71,12 +70,11 @@ class DecentralizedController(ActorController):
 
         return full_message
 
-    def down_step(self, message: torch.Tensor) -> List[float]:
+    def down_step(self, message: torch.Tensor):
 
         output = []
         for module, network in self._models:
             dof, message = network(message, False)
-
             output.append(dof[0])
 
         return output
@@ -89,7 +87,7 @@ class DecentralizedController(ActorController):
         """
         # Total message (without DOF output) is retrieved from Bottom-Up modules
         message = self.up_step(dt)
-
+        message = message.to(dtype=torch.double)
         unordered_targets = self.down_step(message)
 
         self.map_output(unordered_targets)

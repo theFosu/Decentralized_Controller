@@ -1,6 +1,4 @@
 from revolve2.core.physics.actor import Actor, Joint, RigidBody
-from revolve2.core.modular_robot import ActiveHinge, Body
-from pyrr import Quaternion, Vector3
 from typing import List
 
 

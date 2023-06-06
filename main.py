@@ -1,16 +1,15 @@
 """Visualize and run a modular robot using Mujoco."""
 import logging
-import os
 
 from revolve2.standard_resources.modular_robots import *
 from optimizer import DecentralizedOptimizer as Optimizer
 
 '''Revolve has been changed:
     _runner interface should async run batch
-    _local_runner should run all environments at the same time through commented lines
-    removed all async in optimizer and main'''
+    _local_runner should async run batch'''
 
-# TODO: fix fitness, fix asyncronicity
+# TODO: fix fitness
+
 
 def main() -> None:
     """Run the simulation."""
@@ -36,7 +35,7 @@ def main() -> None:
     )
     logging.info(f"Starting optimization")
 
-    bodies = [
+    '''bodies = [
         babya(),
         blokky(),
         garrix(),
@@ -45,7 +44,8 @@ def main() -> None:
         stingray(),
         tinlicker(),
         ant()
-    ]
+    ]'''
+    bodies = [babya()]
     # not included: queen, squarish, zappa, park. Original test bodies: babyb, gecko, penguin
 
     optimizer = Optimizer(bodies, POPULATION, SIMULATION_TIME, SAMPLING_FREQUENCY, CONTROL_FREQUENCY,
@@ -59,7 +59,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    # import asyncio
-    # asyncio.run(main())
+    #import asyncio
+    #asyncio.run(main())
 
     main()
