@@ -56,7 +56,8 @@ class DecentralizedOptimizer:
 
         self.solver = SNES(problem, popsize=population_size, stdev_init=5)
         self.Logger = StdOutLogger(self.solver)
-        # self.Pickler = PicklingLogger(self.solver, interval=1, directory='Checkpoints/')
+        self.Pickler = PicklingLogger(self.solver, interval=1, directory='Checkpoints/', prefix='',
+                                      items_to_save=('best', 'pop_best', 'center', 'best_eval', 'worst_eval', 'median_eval', 'mean_eval', 'pop_best_eval'))
 
         self._robot_bodies = robot_bodies
 
@@ -82,8 +83,8 @@ class DecentralizedOptimizer:
         )
 
         for body in self._robot_bodies:
-
-            _, controller = self.develop(network, body, self._full_message_length, self._single_message_length).make_actor_and_controller()
+            _, controller = self.develop(network, body, self._full_message_length,
+                                         self._single_message_length).make_actor_and_controller()
             actor = controller.actor
             bounding_box = actor.calc_aabb()
             env = Environment(EnvironmentActorController(controller))
@@ -116,10 +117,17 @@ class DecentralizedOptimizer:
 
     @staticmethod
     def get_fitness(states: List[EnvironmentState]) -> float:
+        """
+        Fitness function.
+        The fitness is the distance traveled minus the sum of squared actions (to penalize large movements)"""
 
-        return math.sqrt(
-            (states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2
-            + ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[1]) ** 2))
+        actions = 0
+        for i in range(1, len(states), 2):
+            actions += 0.1 * ((states[i - 1].actor_states[0].dof_state ** 2) - (states[i].actor_states[0].dof_state**2)).sum()
+
+        distance = math.sqrt((states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2 +
+                             ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[1]) ** 2))
+        return distance - actions
 
     @staticmethod
     def develop(network, robot_body, full_message_length, single_message_length) -> ModularRobot:

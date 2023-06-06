@@ -22,7 +22,7 @@ async def main() -> None:
     torch.set_default_dtype(torch.double)
     problem = NEProblem('max', JointPolicy, network_args=policy_args, device=device)
 
-    with open('Checkpoints/NEProblem_2023-06-05-13.41.32_28484_generation000003.pickle', 'rb') as f:
+    with open('Checkpoints/_generation000001.pickle', 'rb') as f:
         file = pickle.load(f)
     print(file)
     best = file['pop_best']

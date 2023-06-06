@@ -6,9 +6,11 @@ from optimizer import DecentralizedOptimizer as Optimizer
 
 '''Revolve has been changed:
     _runner interface should async run batch
-    _local_runner should async run batch'''
+    _local_runner should async run batch
+    _local_runner's get actor state now includes DOFs
+    _results now has dof_state on top of position and orientation'''
 
-# TODO: fix fitness
+# TODO: message passing, get better pickles, maybe better asynchronicity?
 
 
 def main() -> None:
@@ -16,7 +18,7 @@ def main() -> None:
 
     # Evolutionary hyperparameters
     POPULATION = 5
-    NUM_GENERATIONS = 5
+    NUM_GENERATIONS = 2
 
     # Simulation (hyper)parameters
     SIMULATION_TIME = 10
@@ -35,17 +37,12 @@ def main() -> None:
     )
     logging.info(f"Starting optimization")
 
-    '''bodies = [
+    bodies = [
         babya(),
-        blokky(),
-        garrix(),
         insect(),
         spider(),
-        stingray(),
-        tinlicker(),
         ant()
-    ]'''
-    bodies = [babya()]
+    ]
     # not included: queen, squarish, zappa, park. Original test bodies: babyb, gecko, penguin
 
     optimizer = Optimizer(bodies, POPULATION, SIMULATION_TIME, SAMPLING_FREQUENCY, CONTROL_FREQUENCY,
