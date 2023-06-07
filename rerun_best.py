@@ -1,16 +1,15 @@
 """Visualize and simulate the best robot from the optimization process."""
 
 from revolve2.runners.mujoco import ModularRobotRerunner
-from revolve2.core.physics.running import RecordSettings
 from revolve2.standard_resources import terrains
 from revolve2.standard_resources.modular_robots import *
 from evotorch.neuroevolution import NEProblem
 from brain.ModularPolicy import JointPolicy
 import torch
 from optimizer import DecentralizedOptimizer
+from CustomNE import CustomNE
 import pickle
 import os
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 async def main() -> None:
@@ -21,9 +20,9 @@ async def main() -> None:
                    'max_action': 1, 'max_children': 11}
 
     torch.set_default_dtype(torch.double)
-    problem = NEProblem('max', JointPolicy, network_args=policy_args, device=device)
+    problem = NEProblem('max', JointPolicy, network_args=policy_args)
 
-    with open('Checkpoints/NEProblem_2023-06-05-13.41.32_28484_generation000003.pickle', 'rb') as f:
+    with open('Checkpoints/_generation000003.pickle', 'rb') as f:
         file = pickle.load(f)
     print(file)
     best = file['pop_best']
@@ -35,7 +34,7 @@ async def main() -> None:
     # , simulation_time=20, record_settings=recording
 
     rerunner = ModularRobotRerunner()
-    await rerunner.rerun(DecentralizedOptimizer.develop(network, spider(), 11*8, 8), 60, start_paused=False, terrain=terrains.flat())
+    await rerunner.rerun(CustomNE.develop(network, spider(), 11*8, 8), 60, start_paused=False, terrain=terrains.flat())
 
 
 def final_stats(generations: int, threshold: int):

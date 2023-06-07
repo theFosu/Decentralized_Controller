@@ -156,12 +156,24 @@ class DecentralizedNEATOptimizer:
 
     @staticmethod
     async def _calculate_fitness(states: List[EnvironmentState]) -> float:
-        # distance traveled on the xy plane
-        z = [state.actor_states[0].position[2] for state in states]
-        stdev = np.std(z)
-        return math.sqrt(
-            (states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2
-            + ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[1]) ** 2))-stdev
+        """
+        Fitness function.
+        The fitness is the distance traveled minus the sum of squared actions (to penalize large movements)"""
+
+        actions = 0
+        for i in range(1, len(states), 2):
+            action = 0.001 * np.square(
+                states[i - 1].actor_states[0].dof_state - states[i].actor_states[0].dof_state).sum()
+
+            if action == 0:
+                action = 0.0005  # Penalize no movement slightly
+
+            actions += action
+
+        distance = math.sqrt((states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2 +
+                             ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[
+                                 1]) ** 2))
+        return distance - actions
 
     @staticmethod
     def develop(genotype_bu, genotype_td, robot_body,

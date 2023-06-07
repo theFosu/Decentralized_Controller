@@ -1,17 +1,15 @@
 from __future__ import print_function
 import torch
-import torchfold
 import torch.nn as nn
 import torch.nn.functional as F
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class MLPBase(nn.Module):
     def __init__(self, num_inputs, num_outputs):
         super(MLPBase, self).__init__()
-        self.l1 = nn.Linear(num_inputs, 200)
-        self.l2 = nn.Linear(200, 100)
-        self.l3 = nn.Linear(100, num_outputs)
+        self.l1 = nn.Linear(num_inputs, 120)
+        self.l2 = nn.Linear(120, 60)
+        self.l3 = nn.Linear(60, num_outputs)
 
     def forward(self, inputs):
         x = F.relu(self.l1(inputs))
@@ -49,7 +47,7 @@ class ActorDownAction(nn.Module):
         super(ActorDownAction, self).__init__()
         self.max_action = max_action
         self.action_base = MLPBase(msg_dim * max_children, action_dim)
-        self.msg_base = MLPBase(msg_dim * max_children, msg_dim * max_children)
+        self.msg_base = MLPBase(msg_dim * max_children, msg_dim)
 
     def forward(self, m):
         action = self.max_action * torch.tanh(self.action_base(m))

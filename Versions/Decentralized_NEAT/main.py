@@ -11,7 +11,7 @@ async def main() -> None:
     """Run the simulation."""
 
     # Evolutionary hyperparameters
-    POPULATION = 50
+    POPULATION = 40
     NUM_GENERATIONS = 3
 
     # Simulation (hyper)parameters
@@ -35,12 +35,8 @@ async def main() -> None:
 
     bodies = [
         babya(),
-        blokky(),
-        garrix(),
         insect(),
         spider(),
-        stingray(),
-        tinlicker(),
         ant()
     ]
     # not included: queen, squarish, zappa, park. Original test bodies: babyb, gecko, penguin

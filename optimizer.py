@@ -1,19 +1,13 @@
-import math
-
-import numpy as np
+import pickle
 from typing import List
-from revolve2.core.modular_robot import Body, ModularRobot
-from revolve2.core.physics.running import EnvironmentState, Runner, Batch, Environment, PosedActor
-from revolve2.core.physics.environment_actor_controller import EnvironmentActorController
+from revolve2.core.modular_robot import Body
+from revolve2.core.physics.running import Runner
 from revolve2.runners.mujoco import LocalRunner
-from revolve2.standard_resources import terrains
-from pyrr import Vector3, Quaternion
-from brain.decentralized_brain import DecentralizedBrain
 from brain.ModularPolicy import JointPolicy
+from CustomNE import CustomNE
 
-from evotorch.algorithms import SNES
-from evotorch.logging import StdOutLogger, PicklingLogger
-from evotorch.neuroevolution import NEProblem
+from evotorch.algorithms import PGPE
+from evotorch.logging import StdOutLogger, PicklingLogger, PandasLogger
 import torch
 
 
@@ -21,14 +15,14 @@ class DecentralizedOptimizer:
     """
     Evolutionary NEAT optimizer. Does not need to implement much, just a Revolve2 gimmick
     """
-    solver: SNES
+    solver: PGPE
     Logger: StdOutLogger
     Pickler: PicklingLogger
+    Pandaer: PandasLogger
 
     _robot_bodies: List[Body]
 
     _runner: Runner
-    _TERRAIN = terrains.flat()
 
     _simulation_time: int
     _sampling_frequency: float
@@ -42,21 +36,32 @@ class DecentralizedOptimizer:
                  sampling_frequency: float, control_frequency: float,
                  sensory_length: int, batch_size: int, single_message_length: int, biggest_body: int):
 
+        self._full_message_length = single_message_length * biggest_body
+
+        self._runner = LocalRunner(headless=True, num_simulators=8)
+
         policy_args = {'state_dim': sensory_length, 'action_dim': 1,
                        'msg_dim': single_message_length, 'batch_size': batch_size,
                        'max_action': 1, 'max_children': biggest_body}
 
         torch.set_default_dtype(torch.double)
 
-        problem = NEProblem(objective_sense="max",
-                            network=JointPolicy, network_eval_func=self.evaluate_network,
-                            network_args=policy_args, initial_bounds=(-1, 1),
-                            device="cuda:0" if torch.cuda.is_available() else "cpu",
-                            num_actors=4, num_gpus_per_actor='max')
+        problem = CustomNE(bodies=robot_bodies,
+                           single_message_length=single_message_length, full_message_length=self._full_message_length,
+                           runner=self._runner,
+                           objective_sense="max", network=JointPolicy, network_args=policy_args,
+                           simulation_time=simulation_time,
+                           sampling_frequency=sampling_frequency,
+                           control_frequency=control_frequency,
+                           initial_bounds=(-1, 1))
 
-        self.solver = SNES(problem, popsize=population_size, stdev_init=5)
+        self.solver = PGPE(problem, popsize=population_size, stdev_init=5, distributed=False,
+                           center_learning_rate=0.01125, stdev_learning_rate=0.1)
+
         self.Logger = StdOutLogger(self.solver)
-        # self.Pickler = PicklingLogger(self.solver, interval=1, directory='Checkpoints/')
+        self.Pickler = PicklingLogger(self.solver, interval=1, directory='Checkpoints/', prefix='',
+                                      items_to_save=('best', 'pop_best', 'center', 'best_eval', 'worst_eval', 'median_eval', 'mean_eval', 'pop_best_eval'))
+        self.Pandaer = PandasLogger(self.solver)
 
         self._robot_bodies = robot_bodies
 
@@ -64,65 +69,11 @@ class DecentralizedOptimizer:
         self._sampling_frequency = sampling_frequency
         self._control_frequency = control_frequency
 
-        self._full_message_length = single_message_length * biggest_body
         self._single_message_length = single_message_length
-
-        self._runner = LocalRunner(headless=True)
 
     def run(self, num_generations):
 
         self.solver.run(num_generations)
-
-    def evaluate_network(self, network):
-
-        batch = Batch(
-            simulation_time=self._simulation_time,
-            sampling_frequency=self._sampling_frequency,
-            control_frequency=self._control_frequency,
-        )
-
-        for body in self._robot_bodies:
-
-            _, controller = self.develop(network, body, self._full_message_length, self._single_message_length).make_actor_and_controller()
-            actor = controller.actor
-            bounding_box = actor.calc_aabb()
-            env = Environment(EnvironmentActorController(controller))
-            env.static_geometries.extend(self._TERRAIN.static_geometry)
-            env.actors.append(
-                PosedActor(
-                    actor,
-                    Vector3(
-                        [
-                            0.0,
-                            0.0,
-                            bounding_box.size.z / 2.0 - bounding_box.offset.z,
-                        ]
-                    ),
-                    Quaternion(),
-                    [0.0 for _ in controller.get_dof_targets()],
-                )
-            )
-            batch.environments.append(env)
-
-        batch_results = self._runner.run_batch(batch)
-
-        fitness_sum = 0
-        for environment_result in batch_results.environment_results:
-            fitness_sum += self.get_fitness(environment_result.environment_states)
-
-        return fitness_sum / len(self._robot_bodies)
-
-    @staticmethod
-    def get_fitness(states: List[EnvironmentState]) -> float:
-
-        return math.sqrt(
-            (states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2
-            + ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[1]) ** 2))
-
-    @staticmethod
-    def develop(network, robot_body, full_message_length, single_message_length) -> ModularRobot:
-
-        dof_ranges = np.full(len(robot_body.find_active_hinges()), 1.0)
-        brain = DecentralizedBrain(network, dof_ranges, full_message_length, single_message_length)
-
-        return ModularRobot(robot_body, brain)
+        with open('graphs/dataframe.pickle', 'wb') as f:
+            pickle.dump(self.Pandaer.to_dataframe(), f)
+        print(self.solver.status)
