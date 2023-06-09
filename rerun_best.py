@@ -1,8 +1,8 @@
 """Visualize and simulate the best robot from the optimization process."""
 
 from revolve2.runners.mujoco import ModularRobotRerunner
-from revolve2.standard_resources import terrains
-from revolve2.standard_resources.modular_robots import *
+from standard_resources import terrains
+from standard_resources.modular_robots import *
 from evotorch.neuroevolution import NEProblem
 from brain.ModularPolicy import JointPolicy
 import torch
@@ -22,10 +22,10 @@ async def main() -> None:
     torch.set_default_dtype(torch.double)
     problem = NEProblem('max', JointPolicy, network_args=policy_args)
 
-    with open('Checkpoints/_generation000003.pickle', 'rb') as f:
+    with open('Checkpoints/_generation000001.pickle', 'rb') as f:
         file = pickle.load(f)
     print(file)
-    best = file['pop_best']
+    best = file['best']
     network = problem.make_net(best)
 
     print(f"fitness: {file['pop_best_eval']}")

@@ -1,7 +1,6 @@
 import math
-from typing import Any, Callable, Iterable, List, Optional, Union
+from typing import Callable, List, Optional, Union
 
-import copy
 import torch
 from torch import nn
 import numpy as np
@@ -14,7 +13,8 @@ from evotorch.neuroevolution import NEProblem
 from revolve2.core.modular_robot import Body, ModularRobot
 from revolve2.core.physics.running import EnvironmentState, Runner, Batch, Environment, PosedActor
 from revolve2.core.physics.environment_actor_controller import EnvironmentActorController
-from revolve2.standard_resources import terrains
+from revolve2.runners.mujoco import LocalRunner
+from standard_resources import terrains
 from brain.decentralized_brain import DecentralizedBrain
 
 
@@ -24,7 +24,7 @@ class CustomNE(NEProblem):
                  bodies: List[Body],
                  single_message_length: int,
                  full_message_length: int,
-                 runner: Runner,
+                 num_simulators: int,
                  objective_sense: ObjectiveSense,
                  network: Union[str, nn.Module, Callable[[], nn.Module]],
                  network_args: Optional[dict] = None,
@@ -57,12 +57,14 @@ class CustomNE(NEProblem):
         self._single_message_length = single_message_length
         self._full_message_length = full_message_length
         self._TERRAIN = terrains.flat()
-        self._runner = runner
+        self.num_simulators = num_simulators
+        self._runner = LocalRunner(headless=True, num_simulators=num_simulators)
 
     def _evaluate_batch(self, solutions: SolutionBatch):
-        """N.B. Both evotorch and revolve define a concept of batch: their use is simialr but not the same"""
+        """N.B. Both evotorch and revolve define a concept of batch: their use is similar but not the same"""
 
         networks = [self.make_net(solution) for solution in solutions.values]
+        fitnesses = torch.empty(len(solutions))
 
         batch = Batch(
             simulation_time=self._simulation_time,
@@ -70,7 +72,9 @@ class CustomNE(NEProblem):
             control_frequency=self._control_frequency,
         )
 
-        for network, body in zip(networks, self._robot_bodies):
+        for i, network in enumerate(networks):
+            body = self._robot_bodies[i % len(self._robot_bodies)]
+
             _, controller = self.develop(network, body, self._full_message_length,
                                          self._single_message_length).make_actor_and_controller()
             actor = controller.actor
@@ -93,12 +97,24 @@ class CustomNE(NEProblem):
             )
             batch.environments.append(env)
 
-        # batch_results = asyncio.get_event_loop().run_until_complete(self._runner.run_batch(batch))
-        batch_results = self._runner.run_batch(batch)
+            if (i+1) % self.num_simulators == 0:
 
-        fitnesses = torch.empty(len(batch_results.environment_results))
-        for i, environment_result in enumerate(batch_results.environment_results):
-            fitnesses[i] = self.get_fitness(environment_result.environment_states)
+                # batch_results = asyncio.get_event_loop().run_until_complete(self._runner.run_batch(batch))
+                batch_results = self._runner.run_batch(batch)
+
+                for j, environment_result in enumerate(batch_results.environment_results):
+                    fitnesses[i-j] = self.get_fitness(environment_result.environment_states)
+
+                batch = Batch(
+                    simulation_time=self._simulation_time,
+                    sampling_frequency=self._sampling_frequency,
+                    control_frequency=self._control_frequency,
+                )
+        if len(batch.environments) > 0:
+            batch_results = self._runner.run_batch(batch)
+
+            for j, environment_result in enumerate(batch_results.environment_results):
+                fitnesses[-j+1] = self.get_fitness(environment_result.environment_states)
 
         solutions.set_evals(fitnesses)
 
@@ -113,13 +129,13 @@ class CustomNE(NEProblem):
             action = 0.001 * np.square(states[i - 1].actor_states[0].dof_state - states[i].actor_states[0].dof_state).sum()
 
             if action == 0:
-                action = 0.0005  # Penalize no movement slightly
+                action = 0.001  # Penalize no movement slightly
 
             actions += action
 
-        distance = math.sqrt((states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2 +
-                             ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[
-                                 1]) ** 2))
+        distance = ((states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2) \
+                 + ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[1]) ** 2)
+
         return distance - actions
 
     @staticmethod

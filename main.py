@@ -1,7 +1,7 @@
 """Visualize and run a modular robot using Mujoco."""
 import logging
 
-from revolve2.standard_resources.modular_robots import *
+from standard_resources.modular_robots import *
 from optimizer import DecentralizedOptimizer as Optimizer
 
 '''Revolve has been changed:
@@ -10,18 +10,17 @@ from optimizer import DecentralizedOptimizer as Optimizer
     _local_runner's get actor state now includes DOFs
     _results now has dof_state on top of position and orientation'''
 
-# TODO: more info? checkpointing?
-
 
 def main() -> None:
     """Run the simulation."""
 
     # Evolutionary hyperparameters
-    POPULATION = 8*40
-    NUM_GENERATIONS = 500
+    POPULATION = 640
+    NUM_GENERATIONS = 300
 
     # Simulation (hyper)parameters
-    SIMULATION_TIME = 7
+    NUM_SIMULATORS = 32
+    SIMULATION_TIME = 5
     SAMPLING_FREQUENCY = 60
     CONTROL_FREQUENCY = 60
 
@@ -37,12 +36,7 @@ def main() -> None:
     )
     logging.info(f"Starting optimization")
 
-    # dirty trick: bodies are repeated to match concurrent solutions
     bodies = [
-        babya(),
-        insect(),
-        spider(),
-        ant(),
         babya(),
         insect(),
         spider(),
@@ -51,7 +45,7 @@ def main() -> None:
     # not included: queen, squarish, zappa, park. Original test bodies: babyb, gecko, penguin
 
     optimizer = Optimizer(bodies, POPULATION, SIMULATION_TIME, SAMPLING_FREQUENCY, CONTROL_FREQUENCY,
-                          SENSORY_LENGTH, BATCH_SIZE, SINGLE_MESSAGE_LENGTH, BIGGEST_BODY)
+                          SENSORY_LENGTH, BATCH_SIZE, SINGLE_MESSAGE_LENGTH, BIGGEST_BODY, NUM_SIMULATORS)
 
     logging.info("Starting initial optimization process..")
 

@@ -22,8 +22,6 @@ class DecentralizedOptimizer:
 
     _robot_bodies: List[Body]
 
-    _runner: Runner
-
     _simulation_time: int
     _sampling_frequency: float
     _control_frequency: float
@@ -34,11 +32,9 @@ class DecentralizedOptimizer:
     def __init__(self, robot_bodies: List[Body],
                  population_size: int, simulation_time: int,
                  sampling_frequency: float, control_frequency: float,
-                 sensory_length: int, batch_size: int, single_message_length: int, biggest_body: int):
+                 sensory_length: int, batch_size: int, single_message_length: int, biggest_body: int, num_simulators: int):
 
         self._full_message_length = single_message_length * biggest_body
-
-        self._runner = LocalRunner(headless=True, num_simulators=8)
 
         policy_args = {'state_dim': sensory_length, 'action_dim': 1,
                        'msg_dim': single_message_length, 'batch_size': batch_size,
@@ -48,7 +44,7 @@ class DecentralizedOptimizer:
 
         problem = CustomNE(bodies=robot_bodies,
                            single_message_length=single_message_length, full_message_length=self._full_message_length,
-                           runner=self._runner,
+                           num_simulators=num_simulators,
                            objective_sense="max", network=JointPolicy, network_args=policy_args,
                            simulation_time=simulation_time,
                            sampling_frequency=sampling_frequency,
