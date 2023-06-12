@@ -2,11 +2,11 @@
 fitness_criterion     = max
 fitness_threshold     = 200
 no_fitness_termination=False
-pop_size              = 50
+pop_size              = 350
 reset_on_extinction = False
 
 [DefaultGenome]
-num_inputs              = 364
+num_inputs              = 100
 num_hidden              = 5
 num_outputs             = 1
 initial_connection      = partial_direct 0.5

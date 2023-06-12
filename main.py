@@ -1,4 +1,3 @@
-"""Visualize and run a modular robot using Mujoco."""
 import logging
 
 from standard_resources.modular_robots import *
@@ -15,19 +14,19 @@ def main() -> None:
     """Run the simulation."""
 
     # Evolutionary hyperparameters
-    POPULATION = 640
-    NUM_GENERATIONS = 300
+    POPULATION = 600
+    NUM_GENERATIONS = 700
 
     # Simulation (hyper)parameters
-    NUM_SIMULATORS = 32
+    NUM_SIMULATORS = 60
     SIMULATION_TIME = 5
     SAMPLING_FREQUENCY = 60
     CONTROL_FREQUENCY = 60
 
     # Neural network hyperparameters
     BATCH_SIZE = 16
-    SENSORY_LENGTH = 7 + 10  # joint info + body info
-    SINGLE_MESSAGE_LENGTH = 8
+    SENSORY_LENGTH = 7 + 7  # joint info + body info
+    SINGLE_MESSAGE_LENGTH = 16
     BIGGEST_BODY = 11
 
     logging.basicConfig(

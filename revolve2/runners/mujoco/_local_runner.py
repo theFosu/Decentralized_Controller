@@ -87,10 +87,11 @@ class LocalRunner(Runner):
         control_step: float,
         sample_step: float,
         simulation_time: int,
+        simulation_timestep: float,
     ) -> EnvironmentResults:
         logging.info(f"Environment {env_index}")
 
-        model = cls._make_model(env_descr)
+        model = cls._make_model(env_descr, simulation_timestep)
 
         # TODO initial dof state
         data = mujoco.MjData(model)
@@ -234,6 +235,7 @@ class LocalRunner(Runner):
                     control_step,
                     sample_step,
                     batch.simulation_time,
+                    batch.simulation_timestep,
                 )
                 for env_index, env_descr in enumerate(batch.environments)
             ]
@@ -244,12 +246,14 @@ class LocalRunner(Runner):
         return results
 
     @staticmethod
-    def _make_model(env_descr: Environment) -> mujoco.MjModel:
+    def _make_model(
+        env_descr: Environment, simulation_timestep: float = 0.001
+    ) -> mujoco.MjModel:
         env_mjcf = mjcf.RootElement(model="environment")
 
         env_mjcf.compiler.angle = "radian"
 
-        env_mjcf.option.timestep = 0.002
+        env_mjcf.option.timestep = simulation_timestep
         env_mjcf.option.integrator = "RK4"
 
         env_mjcf.option.gravity = [0, 0, -9.81]
@@ -343,6 +347,9 @@ class LocalRunner(Runner):
                         os.remove(botfile.name)
 
             for joint in posed_actor.actor.joints:
+                # Add rotor inertia to joints. This value is arbitrarily chosen and appears stable enough.
+                # Fine-tuning the armature value might be needed later.
+                robot.find(namespace="joint", identifier=joint.name).armature = "0.002"
                 robot.actuator.add(
                     "position",
                     kp=5.0,
@@ -365,11 +372,12 @@ class LocalRunner(Runner):
                 posed_actor.position.z,
             ]
 
+            # in mjcf w is first, not last.
             attachment_frame.quat = [
+                posed_actor.orientation.w,
                 posed_actor.orientation.x,
                 posed_actor.orientation.y,
                 posed_actor.orientation.z,
-                posed_actor.orientation.w,
             ]
 
         xml = env_mjcf.to_xml_string()
@@ -416,6 +424,7 @@ class LocalRunner(Runner):
         position = Vector3([n for n in data.qpos[qindex : qindex + 3]])
         orientation = Quaternion([n for n in data.qpos[qindex + 3 : qindex + 3 + 4]])
         dof_state = np.array([n for n in data.ctrl[::2]])
+
         return ActorState(position, orientation, dof_state)
 
     @staticmethod

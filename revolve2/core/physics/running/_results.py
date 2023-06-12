@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import numpy.typing as npt
+
 from typing import List
 
 from pyrr import Quaternion, Vector3

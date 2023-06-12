@@ -15,26 +15,26 @@ import os
 async def main() -> None:
     """Run the script."""
 
-    policy_args = {'state_dim': 17, 'action_dim': 1,
-                   'msg_dim': 8, 'batch_size': 16,
+    policy_args = {'state_dim': 14, 'action_dim': 1,
+                   'msg_dim': 16, 'batch_size': 16,
                    'max_action': 1, 'max_children': 11}
 
     torch.set_default_dtype(torch.double)
-    problem = NEProblem('max', JointPolicy, network_args=policy_args)
+    problem = CustomNE(objective_sense='max', network=JointPolicy, network_args=policy_args, single_message_length=16, full_message_length=(11*16), num_simulators=1, bodies=[spider()])
 
-    with open('Checkpoints/_generation000001.pickle', 'rb') as f:
+    with open('Checkpoints/_generation0700.pickle', 'rb') as f:
         file = pickle.load(f)
     print(file)
     best = file['best']
-    network = problem.make_net(best)
+    network = problem.parameterize_net(best)
 
-    print(f"fitness: {file['pop_best_eval']}")
+    print(f"fitness: {file['best_eval']}")
 
     # recording = RecordSettings('Videos/spider')
     # , simulation_time=20, record_settings=recording
 
     rerunner = ModularRobotRerunner()
-    await rerunner.rerun(CustomNE.develop(network, spider(), 11*8, 8), 60, start_paused=False, terrain=terrains.flat())
+    await rerunner.rerun(CustomNE.develop(network, spider(), 11*16, 16), 60, start_paused=False, terrain=terrains.flat())
 
 
 def final_stats(generations: int, threshold: int):

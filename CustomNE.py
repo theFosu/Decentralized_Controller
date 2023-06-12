@@ -70,6 +70,7 @@ class CustomNE(NEProblem):
             simulation_time=self._simulation_time,
             sampling_frequency=self._sampling_frequency,
             control_frequency=self._control_frequency,
+            simulation_timestep=0.001
         )
 
         for i, network in enumerate(networks):
@@ -97,24 +98,26 @@ class CustomNE(NEProblem):
             )
             batch.environments.append(env)
 
-            if (i+1) % self.num_simulators == 0:
+            if (i + 1) % self.num_simulators == 0:
 
                 # batch_results = asyncio.get_event_loop().run_until_complete(self._runner.run_batch(batch))
                 batch_results = self._runner.run_batch(batch)
 
                 for j, environment_result in enumerate(batch_results.environment_results):
-                    fitnesses[i-j] = self.get_fitness(environment_result.environment_states)
+                    index = i - (self.num_simulators - j) + 1
+                    fitnesses[index] = self.get_fitness(environment_result.environment_states)
 
                 batch = Batch(
                     simulation_time=self._simulation_time,
                     sampling_frequency=self._sampling_frequency,
                     control_frequency=self._control_frequency,
+                    simulation_timestep=0.001
                 )
         if len(batch.environments) > 0:
             batch_results = self._runner.run_batch(batch)
 
             for j, environment_result in enumerate(batch_results.environment_results):
-                fitnesses[-j+1] = self.get_fitness(environment_result.environment_states)
+                fitnesses[-j - 1] = self.get_fitness(environment_result.environment_states)
 
         solutions.set_evals(fitnesses)
 
@@ -126,15 +129,16 @@ class CustomNE(NEProblem):
 
         actions = 0
         for i in range(1, len(states), 2):
-            action = 0.001 * np.square(states[i - 1].actor_states[0].dof_state - states[i].actor_states[0].dof_state).sum()
+            action = 0.001 * np.square(
+                states[i - 1].actor_states[0].dof_state - states[i].actor_states[0].dof_state).sum()
 
             if action == 0:
-                action = 0.001  # Penalize no movement slightly
+                action = 0.004  # Penalize no movement
 
             actions += action
 
         distance = ((states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2) \
-                 + ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[1]) ** 2)
+                   + ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[1]) ** 2)
 
         return distance - actions
 

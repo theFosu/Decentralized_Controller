@@ -2,7 +2,7 @@
 import logging
 import os
 
-from revolve2.standard_resources.modular_robots import *
+from standard_resources.modular_robots import *
 from initial_optimizer import DecentralizedNEATOptimizer as InitialOptimizer
 from iterative_optimizer import DecentralizedNEATOptimizer as IterativeOptimizer
 
@@ -11,20 +11,21 @@ async def main() -> None:
     """Run the simulation."""
 
     # Evolutionary hyperparameters
-    POPULATION = 40
-    NUM_GENERATIONS = 3
+    POPULATION = 480
+    NUM_GENERATIONS = 100
 
     # Simulation (hyper)parameters
-    SIMULATION_TIME = 15
+    SIMULATION_TIME = 8
     SAMPLING_FREQUENCY = 60
-    CONTROL_FREQUENCY = 30
+    CONTROL_FREQUENCY = 60
+    NUM_SIMULATORS = 60
 
-    SWITCH_TIME = 4
-    NUM_ITERATIONS = 5
+    SWITCH_TIME = 20
+    NUM_ITERATIONS = 20
 
     # Neural network hyperparameters
     SENSORY_LENGTH = 7 + 10  # joint info + body info
-    SINGLE_MESSAGE_LENGTH = 32
+    SINGLE_MESSAGE_LENGTH = 8
     BIGGEST_BODY = 11
 
     logging.basicConfig(
@@ -47,7 +48,7 @@ async def main() -> None:
     config_td_path = os.path.join(local_dir, 'configTD.txt')
 
     optimizer = InitialOptimizer(bodies, config_bu_path, config_td_path, POPULATION, SIMULATION_TIME, SAMPLING_FREQUENCY, CONTROL_FREQUENCY,
-                                 SENSORY_LENGTH, SINGLE_MESSAGE_LENGTH, BIGGEST_BODY)
+                                 SENSORY_LENGTH, SINGLE_MESSAGE_LENGTH, BIGGEST_BODY, NUM_SIMULATORS)
 
     logging.info("Starting initial optimization process..")
 
@@ -56,7 +57,7 @@ async def main() -> None:
     logging.info(f"Finished optimizing.")
 
     optimizer = IterativeOptimizer(bodies, SIMULATION_TIME, SAMPLING_FREQUENCY, CONTROL_FREQUENCY,
-                                   SENSORY_LENGTH, SINGLE_MESSAGE_LENGTH, BIGGEST_BODY)
+                                   SENSORY_LENGTH, SINGLE_MESSAGE_LENGTH, BIGGEST_BODY, NUM_SIMULATORS)
 
     logging.info("Starting iterative optimization process..")
 

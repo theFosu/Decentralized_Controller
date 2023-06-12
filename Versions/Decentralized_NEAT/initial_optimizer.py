@@ -7,7 +7,7 @@ from revolve2.core.modular_robot import Body, ModularRobot
 from revolve2.core.physics.running import EnvironmentState, Runner, Batch, Environment, PosedActor
 from revolve2.core.physics.environment_actor_controller import EnvironmentActorController
 from revolve2.runners.mujoco import LocalRunner
-from revolve2.standard_resources import terrains
+from standard_resources import terrains
 from pyrr import Vector3, Quaternion
 from brain.decentralized_brain import DecentralizedBrain
 from double_population import DoublePopulation
@@ -38,7 +38,7 @@ class DecentralizedNEATOptimizer:
                  config_bu_path: str, config_td_path: str,
                  population_size: int, simulation_time: int,
                  sampling_frequency: float, control_frequency: float,
-                 sensory_length: int, single_message_length: int, biggest_body: int):
+                 sensory_length: int, single_message_length: int, biggest_body: int, num_simulators: int):
 
         # vector message length (with dof output) * maximum estimated number of messages (i.e. number of joints of the largest body)
         full_message_length = biggest_body * (single_message_length + 1) + 1
@@ -75,7 +75,7 @@ class DecentralizedNEATOptimizer:
         self._single_message_length = single_message_length
         self._full_message_length = full_message_length
 
-        self._runner = LocalRunner(headless=True)
+        self._runner = LocalRunner(headless=True, num_simulators=num_simulators)
 
     async def run(self, num_generations):
 
@@ -149,17 +149,16 @@ class DecentralizedNEATOptimizer:
 
         actions = 0
         for i in range(1, len(states), 2):
-            action = 0.001 * np.square(
+            action = 0.1 * np.square(
                 states[i - 1].actor_states[0].dof_state - states[i].actor_states[0].dof_state).sum()
 
             if action == 0:
-                action = 0.0005  # Penalize no movement slightly
+                action = 0.05  # Penalize no movement slightly
 
             actions += action
 
-        distance = math.sqrt((states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2 +
-                             ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[
-                                 1]) ** 2))
+        distance = ((states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2 +
+                    ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[1]) ** 2))
         return distance - actions
 
     @staticmethod

@@ -2,22 +2,6 @@ from revolve2.core.physics.actor import Actor, Joint, RigidBody
 from typing import List
 
 
-def is_root(body: RigidBody) -> bool:
-    """Checks whether the specified body is a root node of the actor graph for actuation"""
-    if body.name == 'origin':
-        return True
-    return False
-
-
-def is_leaf(actor: Actor, body: RigidBody) -> bool:
-    """Checks whether the specified body is a leaf node of the actor graph for message-passing"""
-
-    for joint in actor.joints:
-        if joint.body1.name == body.name:
-            return False
-    return True
-
-
 def retrieve_joint_info_from_actor(actor: Actor) -> List:
 
     positions = []
@@ -74,7 +58,21 @@ def retrieve_joint_info(joint: Joint) -> List:
 
 
 def retrieve_body_info(body: RigidBody) -> List:
-    com = body.center_of_mass()
     return [body.position.x, body.position.y, body.position.z,
-            body.orientation.x, body.orientation.y, body.orientation.z, body.orientation.w,
-            com.x, com.y, com.z]
+            body.orientation.x, body.orientation.y, body.orientation.z, body.orientation.w]
+
+
+def is_root(body: RigidBody) -> bool:
+    """Checks whether the specified body is a root node of the actor graph for actuation"""
+    if body.name == 'origin':
+        return True
+    return False
+
+
+def is_leaf(actor: Actor, body: RigidBody) -> bool:
+    """Checks whether the specified body is a leaf node of the actor graph for message-passing"""
+
+    for joint in actor.joints:
+        if joint.body1.name == body.name:
+            return False
+    return True

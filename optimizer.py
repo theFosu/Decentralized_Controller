@@ -1,12 +1,10 @@
 import pickle
 from typing import List
 from revolve2.core.modular_robot import Body
-from revolve2.core.physics.running import Runner
-from revolve2.runners.mujoco import LocalRunner
 from brain.ModularPolicy import JointPolicy
 from CustomNE import CustomNE
 
-from evotorch.algorithms import PGPE
+from evotorch.algorithms import SNES
 from evotorch.logging import StdOutLogger, PicklingLogger, PandasLogger
 import torch
 
@@ -15,7 +13,7 @@ class DecentralizedOptimizer:
     """
     Evolutionary NEAT optimizer. Does not need to implement much, just a Revolve2 gimmick
     """
-    solver: PGPE
+    solver: SNES
     Logger: StdOutLogger
     Pickler: PicklingLogger
     Pandaer: PandasLogger
@@ -51,11 +49,10 @@ class DecentralizedOptimizer:
                            control_frequency=control_frequency,
                            initial_bounds=(-1, 1))
 
-        self.solver = PGPE(problem, popsize=population_size, stdev_init=5, distributed=False,
-                           center_learning_rate=0.01125, stdev_learning_rate=0.1)
+        self.solver = SNES(problem, popsize=population_size, stdev_init=5, distributed=False)
 
         self.Logger = StdOutLogger(self.solver)
-        self.Pickler = PicklingLogger(self.solver, interval=1, directory='Checkpoints/', prefix='',
+        self.Pickler = PicklingLogger(self.solver, interval=10, directory='Checkpoints/', prefix='', zfill=4,
                                       items_to_save=('best', 'pop_best', 'center', 'best_eval', 'worst_eval', 'median_eval', 'mean_eval', 'pop_best_eval'))
         self.Pandaer = PandasLogger(self.solver)
 
@@ -67,9 +64,13 @@ class DecentralizedOptimizer:
 
         self._single_message_length = single_message_length
 
+        self.TOKEN = "5802238452:AAE-TnCKHgpeIJlQzleM3dhDRtMy03FjjbA"
+        self.chat_id = "259729992"
+
     def run(self, num_generations):
 
         self.solver.run(num_generations)
+
         with open('graphs/dataframe.pickle', 'wb') as f:
             pickle.dump(self.Pandaer.to_dataframe(), f)
         print(self.solver.status)
