@@ -5,7 +5,7 @@ import os
 from random import Random
 
 from revolve2.core.modular_robot import ActiveHinge, Body, Brick, ModularRobot
-from revolve2.standard_resources.modular_robots import spider
+from standard_resources.modular_robots import spider
 from revolve2.core.modular_robot.brains import *
 from revolve2.core.optimization import DbId
 from revolve2.core.database import open_async_database_sqlite

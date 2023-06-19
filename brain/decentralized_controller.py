@@ -3,7 +3,6 @@ from __future__ import annotations
 import math
 
 from state_measures import *
-from brain.ModularPolicy import JointPolicy
 
 from typing import List
 import torch
@@ -12,6 +11,7 @@ import numpy.typing as npt
 from revolve2.actor_controller import ActorController
 from revolve2.core.physics.actor import Actor, Joint
 from revolve2.serialization import SerializeError, StaticData
+from evotorch.neuroevolution.net.layers import LocomotorNet
 
 
 class DecentralizedController(ActorController):
@@ -19,19 +19,19 @@ class DecentralizedController(ActorController):
 
     _dof_ranges: npt.NDArray[np.float_]
     _dof_ids: List[int]
-    _models: List[List[Joint, JointPolicy]]
+    _models: List[List[Joint, LocomotorNet]]
     _actor: Actor
     _target: npt.NDArray[np.float_]
-    _full_message_length: int
-    _single_message_length: int
+    _num_neighbors: int
+    _state_length: int
 
     def __init__(
         self,
         dof_ranges: npt.NDArray[np.float_], dof_ids: List[int],
-        models: List[List[Joint, JointPolicy]],
+        models: List[List[Joint, LocomotorNet]],
         actor: Actor,
-        full_length: int,
-        single_length: int
+        num_neighbors: int,
+        state_length: int
     ) -> None:
         """
         Initialize this object.
@@ -46,41 +46,13 @@ class DecentralizedController(ActorController):
         self._actor = actor
 
         self._target = np.full(len(self._dof_ranges), 0.5 * math.pi / 2.0)
-        self._full_message_length = full_length
-        self._single_message_length = single_length
+        self._num_neighbors = num_neighbors
+        self._state_length = state_length
 
     def map_output(self, unordered_targets: List[float]) -> None:
         """Maps the arbitrary output of the down step to their corresponding dof_id index"""
         for i, target in enumerate(unordered_targets):
             self._target[self._dof_ids[i]] = target
-
-    def up_step(self, dt: float) -> (torch.Tensor, int):
-
-        full_message = torch.tensor([0.0 for _ in range(self._full_message_length)])
-
-        filled = 0
-        for module, network in reversed(self._models):
-
-            input_data = retrieve_extended_joint_info(module)
-            _, modular_message = network(torch.tensor(input_data), True)
-
-            full_message[filled:filled + self._single_message_length] = modular_message
-            filled += self._single_message_length
-
-        return full_message, filled
-
-    def down_step(self, message: torch.Tensor, filled_index: int):
-
-        output = []
-        for module, network in self._models:
-            dof, new_message = network(message, False)
-            message[filled_index-self._single_message_length:filled_index] = new_message
-
-            filled_index -= self._single_message_length
-
-            output.append(dof[0])
-
-        return output
 
     def step(self, dt: float) -> None:
         """
@@ -88,13 +60,30 @@ class DecentralizedController(ActorController):
 
         :param dt: The number of seconds to step forward.
         """
-        # Total message (without DOF output) is retrieved from Bottom-Up modules
-        message, filled_index = self.up_step(dt)
 
-        message = message.to(dtype=torch.double)
-        unordered_targets = self.down_step(message, filled_index)
+        input_length = self._state_length + (self._state_length*self._num_neighbors)
+        output = []
 
-        self.map_output(unordered_targets)
+        for i, model_tuple in enumerate(self._models):
+            joint, model = model_tuple
+
+            input_tensor = torch.tensor([0.0 for _ in range(input_length)], dtype=torch.double)
+
+            input_tensor[0:self._state_length] = torch.tensor(retrieve_extended_joint_info(joint))
+
+            for j in range(self._num_neighbors):
+
+                neighbor_index = i+j+1
+                if (neighbor_index > len(self._dof_ids)-1) or (self._dof_ids[neighbor_index] > neighbor_index and (i - j - 1) >= 0):
+                    neighbor_index = i - j - 1
+
+                input_index = self._state_length*(j+1)
+                input_tensor[input_index:input_index+self._state_length] = torch.tensor(retrieve_extended_joint_info(self.actor.joints[neighbor_index]))
+
+            single_output = model(input_tensor)
+            output.append(single_output[0])
+
+        self.map_output(output)
 
     def get_dof_targets(self) -> List[float]:
         """

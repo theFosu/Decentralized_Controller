@@ -9,7 +9,7 @@ from revolve2.core.modular_robot import Body
 from revolve2.core.physics.environment_actor_controller import EnvironmentActorController
 from revolve2.core.physics.running import ActorState, ActorControl, Runner, Batch, Environment, PosedActor
 from revolve2.runners.mujoco import LocalRunner
-from revolve2.standard_resources import terrains
+from standard_resources import terrains
 from pyrr import Vector3, Quaternion
 
 from sqlalchemy.ext.asyncio.session import AsyncSession
@@ -47,6 +47,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
             simulation_time=self._simulation_time,
             sampling_frequency=self._sampling_frequency,
             control_frequency=self._control_frequency,
+            simulation_timestep=0.001
         )
 
         for genotype in genotypes:

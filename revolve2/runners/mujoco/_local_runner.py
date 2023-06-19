@@ -89,7 +89,7 @@ class LocalRunner(Runner):
         simulation_time: int,
         simulation_timestep: float,
     ) -> EnvironmentResults:
-        logging.info(f"Environment {env_index}")
+        #logging.info(f"Environment {env_index}")
 
         model = cls._make_model(env_descr, simulation_timestep)
 
@@ -325,10 +325,10 @@ class LocalRunner(Runner):
             # handle an exception when the xml saving fails, it's almost certain to occur on Windows
             # since NamedTemporaryFile can't be opened twice when the file is still open.
             except Exception as e:
-                print(repr(e))
+                '''print(repr(e))
                 print(
                     "Setting 'delete' parameter to False so that the xml can be saved"
-                )
+                )'''
                 with tempfile.NamedTemporaryFile(
                     mode="r+", delete=False, suffix="_mujoco.urdf"
                 ) as botfile:
@@ -349,7 +349,7 @@ class LocalRunner(Runner):
             for joint in posed_actor.actor.joints:
                 # Add rotor inertia to joints. This value is arbitrarily chosen and appears stable enough.
                 # Fine-tuning the armature value might be needed later.
-                robot.find(namespace="joint", identifier=joint.name).armature = "0.002"
+                robot.find(namespace="joint", identifier=joint.name).armature = "0.008"
                 robot.actuator.add(
                     "position",
                     kp=5.0,

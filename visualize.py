@@ -4,9 +4,12 @@ import graphviz
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import pickle
+import pandas as pd
+import os
 
 
-def plot_stats(statistics, threshold, ylog=False, view=False, filename='avg_fitness.svg'):
+def plot_stats(df, ylog=False, view=False, filename='Graphs/clipped_fitness.svg'):
     """ Plots the population's average and best fitness. """
     if plt is None:
         warnings.warn("This display is not available due to a missing optional dependency (matplotlib)")
@@ -14,57 +17,30 @@ def plot_stats(statistics, threshold, ylog=False, view=False, filename='avg_fitn
 
     mpl.use('TkAgg')
 
-    generation = range(len(statistics.most_fit_genomes))
-    best_fitness = [c.fitness for c in statistics.most_fit_genomes]
-    avg_fitness = np.array(statistics.get_fitness_mean())
-    stdev_fitness = np.array(statistics.get_fitness_stdev())
+    generations = np.arange(1, 152, 5)
+    print(generations)
+    df['Generation'] = generations
 
-    plt.plot(generation, avg_fitness, 'b-', label="average")
-    plt.plot(generation, avg_fitness - stdev_fitness, 'g-.', label="-1 sd")
-    plt.plot(generation, avg_fitness + stdev_fitness, 'g-.', label="+1 sd")
-    plt.plot(generation, best_fitness, 'r-', label="best")
+    plt.plot(df['Generation'], df['median_eval'], color='blue', label='Population Center Fitness')
 
-    plt.axvline(x=threshold, color='black', linestyle='--', label="phase threshold")
+    # Plotting the shaded area for best and worst fitness
+    plt.fill_between(df['Generation'], df['best_eval'], df['worst_eval'], color='lightblue', alpha=0.4, label='Total Fitness Range')
 
-    plt.title("Population's average and best fitness")
+    # Adding a legend
+    plt.legend()
+
+    # plt.axvline(x=threshold, color='black', linestyle='--', label="phase threshold")
+
+    plt.title("Fitness progression")
     plt.xlabel("Generations")
     plt.ylabel("Fitness")
-    plt.grid()
-    plt.legend(loc="best")
+    #plt.grid()
+    plt.legend(loc="center")
+    plt.xlim(1, 150)
     if ylog:
         plt.gca().set_yscale('symlog')
 
     plt.savefig(filename)
-    if view:
-        plt.show()
-
-    plt.close()
-
-
-def plot_species(statistics, threshold, view=False, filename='speciation.svg'):
-    """ Visualizes speciation throughout evolution. """
-    if plt is None:
-        warnings.warn("This display is not available due to a missing optional dependency (matplotlib)")
-        return
-
-    mpl.use('TkAgg')
-
-    species_sizes = statistics.get_species_sizes()
-    num_generations = len(species_sizes)
-    curves = np.array(species_sizes).T
-
-    fig, ax = plt.subplots()
-    ax.stackplot(range(num_generations), *curves)
-
-    plt.axvline(x=threshold, color='black', linestyle='--', label="phase threshold")
-
-    plt.title("Speciation")
-    plt.ylabel("Size per Species")
-    plt.xlabel("Generations")
-    plt.legend(loc="best")
-
-    plt.savefig(filename)
-
     if view:
         plt.show()
 
@@ -140,3 +116,44 @@ def draw_net(config, genome, view=False, filename=None, node_names=None, show_di
     dot.render(filename=filename, view=view)
 
     return dot
+
+
+def get_main():
+    folder_path = 'new-Checkpoints/'
+
+    # Get the list of pickle files in the folder
+    pickle_files = [file for file in os.listdir(folder_path)]
+
+    # Sort the list of pickle files
+    pickle_files = sorted(pickle_files)
+
+    full_dict = {'mean_eval': [-168.22711905855635], 'pop_best_eval': [-111.63850514171196],
+                 'median_eval': [-166.00387061608035], 'best_eval': [-111.63850514171196],
+                 'worst_eval': [-259.555534683086]}
+
+    # Iterate through each file in the folder
+    for i, file in enumerate(pickle_files):
+
+        file_path = os.path.join(folder_path, file)  # Get the full file path
+
+        with open(file_path, 'rb') as f:
+            data_dict = pickle.load(f)
+            for key in full_dict.keys():
+                full_dict[key].append(data_dict[key])
+        if i >= 29:
+            break
+
+    return pd.DataFrame.from_dict(full_dict)
+
+
+def main():
+    df = get_main()
+    print(df['best_eval'])
+
+    keys = ['best_eval', 'worst_eval', 'median_eval']
+    # print(df.columns)
+    plot_stats(df[keys], view=True)
+
+
+if __name__ == "__main__":
+    main()

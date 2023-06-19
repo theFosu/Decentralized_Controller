@@ -2,7 +2,7 @@
 fitness_criterion     = max
 fitness_threshold     = 200
 no_fitness_termination=False
-pop_size              = 350
+pop_size              = 480
 reset_on_extinction = False
 
 [DefaultGenome]

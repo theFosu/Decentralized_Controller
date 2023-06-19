@@ -35,7 +35,7 @@ async def main() -> None:
     #, simulation_time=20, record_settings=recording
 
     rerunner = ModularRobotRerunner()
-    await rerunner.rerun(DecentralizedNEATOptimizer.develop(cbu, ctd, spider(), 17, 8, 11*9+1, config_bu, config_td), 40, start_paused=False, terrain=terrains.flat())
+    await rerunner.rerun(DecentralizedNEATOptimizer.develop(cbu, ctd, spider(), 17, 8, 11*9+1, config_bu, config_td), 60, start_paused=False, terrain=terrains.flat())
 
 
 def finalize_checkpoint():

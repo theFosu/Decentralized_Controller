@@ -53,7 +53,10 @@ class CpgActorController(ActorController):
 
         :param dt: The number of seconds to step forward.
         """
+        old_state = self._state
         self._state = self._rk45(self._state, self._weight_matrix, dt)
+        a = np.square(old_state - self._state).sum()
+        print(a)
 
     @staticmethod
     def _rk45(

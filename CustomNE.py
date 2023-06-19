@@ -1,4 +1,3 @@
-import math
 from typing import Callable, List, Optional, Union
 
 import torch
@@ -22,8 +21,8 @@ class CustomNE(NEProblem):
 
     def __init__(self,
                  bodies: List[Body],
-                 single_message_length: int,
-                 full_message_length: int,
+                 num_neighbors: int,
+                 state_length: int,
                  num_simulators: int,
                  objective_sense: ObjectiveSense,
                  network: Union[str, nn.Module, Callable[[], nn.Module]],
@@ -54,8 +53,8 @@ class CustomNE(NEProblem):
         self._simulation_time = simulation_time
         self._sampling_frequency = sampling_frequency
         self._control_frequency = control_frequency
-        self._single_message_length = single_message_length
-        self._full_message_length = full_message_length
+        self._num_neighbors = num_neighbors
+        self._state_length = state_length
         self._TERRAIN = terrains.flat()
         self.num_simulators = num_simulators
         self._runner = LocalRunner(headless=True, num_simulators=num_simulators)
@@ -64,7 +63,7 @@ class CustomNE(NEProblem):
         """N.B. Both evotorch and revolve define a concept of batch: their use is similar but not the same"""
 
         networks = [self.make_net(solution) for solution in solutions.values]
-        fitnesses = torch.empty(len(solutions))
+        fitnesses = torch.full((len(solutions),), 99999.0)
 
         batch = Batch(
             simulation_time=self._simulation_time,
@@ -72,52 +71,57 @@ class CustomNE(NEProblem):
             control_frequency=self._control_frequency,
             simulation_timestep=0.001
         )
+        for body in self._robot_bodies:
+            for i, network in enumerate(networks):
 
-        for i, network in enumerate(networks):
-            body = self._robot_bodies[i % len(self._robot_bodies)]
-
-            _, controller = self.develop(network, body, self._full_message_length,
-                                         self._single_message_length).make_actor_and_controller()
-            actor = controller.actor
-            bounding_box = actor.calc_aabb()
-            env = Environment(EnvironmentActorController(controller))
-            env.static_geometries.extend(self._TERRAIN.static_geometry)
-            env.actors.append(
-                PosedActor(
-                    actor,
-                    Vector3(
-                        [
-                            0.0,
-                            0.0,
-                            bounding_box.size.z / 2.0 - bounding_box.offset.z,
-                        ]
-                    ),
-                    Quaternion(),
-                    [0.0 for _ in controller.get_dof_targets()],
+                _, controller = self.develop(network, body, self._num_neighbors,
+                                             self._state_length).make_actor_and_controller()
+                actor = controller.actor
+                bounding_box = actor.calc_aabb()
+                env = Environment(EnvironmentActorController(controller))
+                env.static_geometries.extend(self._TERRAIN.static_geometry)
+                env.actors.append(
+                    PosedActor(
+                        actor,
+                        Vector3(
+                            [
+                                0.0,
+                                0.0,
+                                bounding_box.size.z / 2.0 - bounding_box.offset.z,
+                            ]
+                        ),
+                        Quaternion(),
+                        [0.0 for _ in controller.get_dof_targets()],
+                    )
                 )
-            )
-            batch.environments.append(env)
+                batch.environments.append(env)
 
-            if (i + 1) % self.num_simulators == 0:
+                if (i + 1) % self.num_simulators == 0:
 
-                # batch_results = asyncio.get_event_loop().run_until_complete(self._runner.run_batch(batch))
+                    # batch_results = asyncio.get_event_loop().run_until_complete(self._runner.run_batch(batch))
+                    batch_results = self._runner.run_batch(batch)
+
+                    for j, environment_result in enumerate(batch_results.environment_results):
+                        index = i - (self.num_simulators - j) + 1
+                        fitness = self.get_fitness(environment_result.environment_states)
+                        if fitnesses[index] > fitness:
+                            fitnesses[index] = fitness
+
+                        fitnesses[index] = self.get_fitness(environment_result.environment_states)
+
+                    batch = Batch(
+                        simulation_time=self._simulation_time,
+                        sampling_frequency=self._sampling_frequency,
+                        control_frequency=self._control_frequency,
+                        simulation_timestep=0.001
+                    )
+            if len(batch.environments) > 0:
                 batch_results = self._runner.run_batch(batch)
 
                 for j, environment_result in enumerate(batch_results.environment_results):
-                    index = i - (self.num_simulators - j) + 1
-                    fitnesses[index] = self.get_fitness(environment_result.environment_states)
-
-                batch = Batch(
-                    simulation_time=self._simulation_time,
-                    sampling_frequency=self._sampling_frequency,
-                    control_frequency=self._control_frequency,
-                    simulation_timestep=0.001
-                )
-        if len(batch.environments) > 0:
-            batch_results = self._runner.run_batch(batch)
-
-            for j, environment_result in enumerate(batch_results.environment_results):
-                fitnesses[-j - 1] = self.get_fitness(environment_result.environment_states)
+                    fitness = self.get_fitness(environment_result.environment_states)
+                    if fitnesses[-j - 1] > fitness:
+                        fitnesses[-j - 1] = fitness
 
         solutions.set_evals(fitnesses)
 
@@ -128,25 +132,29 @@ class CustomNE(NEProblem):
         The fitness is the distance traveled minus the sum of squared actions (to penalize large movements)"""
 
         actions = 0
+        asymmetry = 0
+        num_limbs = len(states[0].actor_states[0].dof_state)
         for i in range(1, len(states), 2):
-            action = 0.001 * np.square(
-                states[i - 1].actor_states[0].dof_state - states[i].actor_states[0].dof_state).sum()
+
+            action = (np.square(states[i - 1].actor_states[0].dof_state - states[i].actor_states[0].dof_state).sum()) / num_limbs
+
+            asymmetry += np.std(np.square(states[i - 1].actor_states[0].dof_state)) + np.std(np.square(states[i].actor_states[0].dof_state))
 
             if action == 0:
-                action = 0.004  # Penalize no movement
+                action = 0.5  # Penalize no movement
 
             actions += action
 
-        distance = ((states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2) \
-                   + ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[1]) ** 2)
+        distance = 3 * ((states[0].actor_states[0].position[0] - states[-1].actor_states[0].position[0]) ** 2)
+                   # + ((states[0].actor_states[0].position[1] - states[-1].actor_states[0].position[1]) ** 2)
 
         return distance - actions
 
     @staticmethod
-    def develop(network, robot_body, full_message_length, single_message_length) -> ModularRobot:
+    def develop(network, robot_body, num_neighbors, state_length) -> ModularRobot:
 
         dof_ranges = np.full(len(robot_body.find_active_hinges()), 1.0)
-        brain = DecentralizedBrain(network, dof_ranges, full_message_length, single_message_length)
+        brain = DecentralizedBrain(network, dof_ranges, num_neighbors, state_length)
 
         return ModularRobot(robot_body, brain)
 
