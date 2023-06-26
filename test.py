@@ -57,7 +57,7 @@ def get_fitnesses(network):
 
     for body, name in zip(bodies, names):
         batch = Batch(
-            simulation_time=5,
+            simulation_time=6,
             sampling_frequency=60,
             control_frequency=60,
             simulation_timestep=0.001
@@ -124,7 +124,7 @@ def plot_effects(fitnesses):
 def plot_fitnesses(fitnesses):
     mpl.use('TkAgg')
 
-    # colors = ['blue', 'blue', 'blue', 'blue', 'red', 'red']
+    colors = ['blue', 'blue', 'blue', 'blue', 'red', 'red']
 
     df = pd.DataFrame.from_dict(fitnesses)
 

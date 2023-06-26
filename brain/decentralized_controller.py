@@ -6,12 +6,12 @@ from state_measures import *
 
 from typing import List
 import torch
+import torch.nn as nn
 import numpy as np
 import numpy.typing as npt
 from revolve2.actor_controller import ActorController
 from revolve2.core.physics.actor import Actor, Joint
 from revolve2.serialization import SerializeError, StaticData
-from evotorch.neuroevolution.net.layers import LocomotorNet
 
 
 class DecentralizedController(ActorController):
@@ -19,7 +19,7 @@ class DecentralizedController(ActorController):
 
     _dof_ranges: npt.NDArray[np.float_]
     _dof_ids: List[int]
-    _models: List[List[Joint, LocomotorNet]]
+    _models: List[List[Joint, nn.Module]]
     _actor: Actor
     _target: npt.NDArray[np.float_]
     _num_neighbors: int
@@ -28,7 +28,7 @@ class DecentralizedController(ActorController):
     def __init__(
         self,
         dof_ranges: npt.NDArray[np.float_], dof_ids: List[int],
-        models: List[List[Joint, LocomotorNet]],
+        models: List[List[Joint, nn.Module]],
         actor: Actor,
         num_neighbors: int,
         state_length: int

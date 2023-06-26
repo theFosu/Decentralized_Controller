@@ -9,7 +9,7 @@ import pandas as pd
 import os
 
 
-def plot_stats(df, ylog=False, view=False, filename='Graphs/clipped_fitness.svg'):
+def plot_stats(df, ylog=False, view=False, filename='Graphs/clipped_fitness_comparison'):
     """ Plots the population's average and best fitness. """
     if plt is None:
         warnings.warn("This display is not available due to a missing optional dependency (matplotlib)")
@@ -18,13 +18,19 @@ def plot_stats(df, ylog=False, view=False, filename='Graphs/clipped_fitness.svg'
     mpl.use('TkAgg')
 
     generations = np.arange(1, 152, 5)
-    print(generations)
-    df['Generation'] = generations
 
-    plt.plot(df['Generation'], df['median_eval'], color='blue', label='Population Center Fitness')
+    df[0]['Generation'] = generations
+    df[1]['Generation'] = generations
+    df[2]['Generation'] = generations
 
-    # Plotting the shaded area for best and worst fitness
-    plt.fill_between(df['Generation'], df['best_eval'], df['worst_eval'], color='lightblue', alpha=0.4, label='Total Fitness Range')
+    plt.plot(df[0]['Generation'], df[0]['median_eval'], color='blue', label='DecLoco')
+    plt.fill_between(df[0]['Generation'], df[0]['best_eval'], df[0]['worst_eval'], color='lightblue', alpha=0.8)
+
+    plt.plot(df[1]['Generation'], df[1]['median_eval'], color='red', label='SCN-0')
+    plt.fill_between(df[1]['Generation'], df[1]['best_eval'], df[1]['worst_eval'], color='lightcoral', alpha=0.4)
+
+    plt.plot(df[2]['Generation'], df[2]['median_eval'], color='green', label='MLP-4')
+    plt.fill_between(df[2]['Generation'], df[2]['best_eval'], df[2]['worst_eval'], color='lightgreen', alpha=0.6)
 
     # Adding a legend
     plt.legend()
@@ -33,7 +39,7 @@ def plot_stats(df, ylog=False, view=False, filename='Graphs/clipped_fitness.svg'
 
     plt.title("Fitness progression")
     plt.xlabel("Generations")
-    plt.ylabel("Fitness")
+    plt.ylabel("logFitness")
     #plt.grid()
     plt.legend(loc="center")
     plt.xlim(1, 150)
@@ -45,77 +51,6 @@ def plot_stats(df, ylog=False, view=False, filename='Graphs/clipped_fitness.svg'
         plt.show()
 
     plt.close()
-
-
-def draw_net(config, genome, view=False, filename=None, node_names=None, show_disabled=True, prune_unused=False,
-             node_colors=None, fmt='svg'):
-    """ Receives a genome and draws a neural network with arbitrary topology. """
-    # Attributes for network nodes.
-    if graphviz is None:
-        warnings.warn("This display is not available due to a missing optional dependency (graphviz)")
-        return
-
-    # If requested, use a copy of the genome which omits all components that won't affect the output.
-    if prune_unused:
-        genome = genome.get_pruned_copy(config.genome_config)
-
-    if node_names is None:
-        node_names = {}
-
-    assert type(node_names) is dict
-
-    if node_colors is None:
-        node_colors = {}
-
-    assert type(node_colors) is dict
-
-    node_attrs = {
-        'shape': 'circle',
-        'fontsize': '9',
-        'height': '0.2',
-        'width': '0.2'}
-
-    dot = graphviz.Digraph(format=fmt, node_attr=node_attrs)
-
-    inputs = set()
-    for k in config.genome_config.input_keys:
-        inputs.add(k)
-        name = node_names.get(k, str(k))
-        input_attrs = {'style': 'filled', 'shape': 'box', 'fillcolor': node_colors.get(k, 'lightgray')}
-        dot.node(name, _attributes=input_attrs)
-
-    outputs = set()
-    for k in config.genome_config.output_keys:
-        outputs.add(k)
-        name = node_names.get(k, str(k))
-        node_attrs = {'style': 'filled', 'fillcolor': node_colors.get(k, 'lightblue')}
-
-        dot.node(name, _attributes=node_attrs)
-
-    used_nodes = set(genome.nodes.keys())
-    for n in used_nodes:
-        if n in inputs or n in outputs:
-            continue
-
-        attrs = {'style': 'filled',
-                 'fillcolor': node_colors.get(n, 'white')}
-        dot.node(str(n), _attributes=attrs)
-
-    for cg in genome.connections.values():
-        if cg.enabled or show_disabled:
-            # if cg.input not in used_nodes or cg.output not in used_nodes:
-            #    continue
-            input, output = cg.key
-            a = node_names.get(input, str(input))
-            b = node_names.get(output, str(output))
-            style = 'solid' if cg.enabled else 'dotted'
-            color = 'green' if cg.weight > 0 else 'red'
-            width = str(0.1 + abs(cg.weight / 5.0))
-            dot.edge(a, b, _attributes={'style': style, 'color': color, 'penwidth': width})
-
-    dot.render(filename=filename, view=view)
-
-    return dot
 
 
 def get_main():
@@ -147,12 +82,18 @@ def get_main():
 
 
 def main():
-    df = get_main()
-    print(df['best_eval'])
+    main_df = get_main()
+
+    nonei_df = pd.read_pickle('less-Checkpoints/lessDataframe.pickle')
+
+    ff_df = pd.read_pickle('ff-Checkpoints/ffDataframe.pickle')
+    ff_df = ff_df.iloc[:31, :]
 
     keys = ['best_eval', 'worst_eval', 'median_eval']
-    # print(df.columns)
-    plot_stats(df[keys], view=True)
+    print(ff_df['best_eval'])
+
+    df = [main_df[keys], nonei_df[keys], ff_df[keys]]
+    plot_stats(df, view=True, ylog=True)
 
 
 if __name__ == "__main__":

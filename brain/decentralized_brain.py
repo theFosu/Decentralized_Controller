@@ -1,4 +1,5 @@
 from typing import List
+import torch.nn as nn
 import numpy as np
 import numpy.typing as npt
 import copy
@@ -6,7 +7,6 @@ import copy
 from revolve2.actor_controller import ActorController
 from revolve2.core.modular_robot import Body, Brain
 from brain.decentralized_controller import DecentralizedController
-from evotorch.neuroevolution.net.layers import LocomotorNet
 
 
 class DecentralizedBrain(Brain):
@@ -14,12 +14,12 @@ class DecentralizedBrain(Brain):
     Decentralized brain that controls each limb through two modules with weights and topology defined by NEAT algorithm
     """
 
-    _policy: LocomotorNet
+    _policy: nn.Module
     _dof_ranges: npt.NDArray[np.float_]
     _full_message_length: int
     _single_message_length: int
 
-    def __init__(self, network: LocomotorNet, dof_ranges: npt.NDArray[np.float_], num_neighbors, state_length):
+    def __init__(self, network: nn.Module, dof_ranges: npt.NDArray[np.float_], num_neighbors, state_length):
         self._policy = network
         self._dof_ranges = dof_ranges
         self.num_neighbors = num_neighbors

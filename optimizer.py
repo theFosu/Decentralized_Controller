@@ -4,7 +4,7 @@ from revolve2.core.modular_robot import Body
 from customNE import CustomNE
 
 from evotorch.algorithms import PGPE
-from evotorch.neuroevolution.net.layers import LocomotorNet
+from evotorch.neuroevolution.net.layers import LocomotorNet, FeedForwardNet
 from evotorch.logging import StdOutLogger, PicklingLogger, PandasLogger
 import torch
 
@@ -34,13 +34,14 @@ class DecentralizedOptimizer:
         input_length = sensory_length + (sensory_length*num_neighbors)
 
         policy_args = {'in_features': input_length, 'out_features': 1, 'num_sinusoids': num_sinusoids}
+        net = FeedForwardNet(input_length, [(num_sinusoids, 'tanh'), (1, 'tanh')])
 
         torch.set_default_dtype(torch.double)
 
         problem = CustomNE(bodies=robot_bodies,
                            num_neighbors=num_neighbors, state_length=sensory_length,
                            num_simulators=num_simulators,
-                           objective_sense="max", network=LocomotorNet, network_args=policy_args,
+                           objective_sense="max", network=net, network_args=policy_args,
                            simulation_time=simulation_time,
                            sampling_frequency=sampling_frequency,
                            control_frequency=control_frequency,
@@ -71,7 +72,7 @@ class DecentralizedOptimizer:
         self._sampling_frequency = sampling_frequency
         self._control_frequency = control_frequency
 
-
+        # add here TOKEN and chat_id for telegram messaging
 
     def run(self, num_generations):
 

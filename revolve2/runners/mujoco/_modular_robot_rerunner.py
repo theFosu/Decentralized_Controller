@@ -15,7 +15,7 @@ from revolve2.runners.mujoco import LocalRunner
 class ModularRobotRerunner:
     """Rerunner for a single robot that uses Mujoco."""
 
-    async def rerun(
+    def rerun(
         self,
         robots: Union[ModularRobot, List[ModularRobot]],
         control_frequency: float,
@@ -66,7 +66,7 @@ class ModularRobotRerunner:
             batch.environments.append(env)
 
         runner = LocalRunner(headless=False, start_paused=start_paused)
-        await runner.run_batch(batch, record_settings=record_settings)
+        runner.run_batch(batch, record_settings=record_settings)
 
 
 if __name__ == "__main__":
